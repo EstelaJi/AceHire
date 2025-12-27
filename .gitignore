@@ -1,0 +1,5 @@
+# compiled outputs
+dist
+node_modules
+build
+.env
