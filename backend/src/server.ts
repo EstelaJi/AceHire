@@ -6,6 +6,7 @@ import { createClient } from 'redis';
 import { Pool } from 'pg';
 import axios from 'axios';
 import { v4 as uuid } from 'uuid';
+import FormData from 'form-data';
 import { config } from './config';
 
 type Role = 'ai' | 'candidate';
@@ -153,8 +154,23 @@ io.on('connection', socket => {
     if (!payload.blob) return;
     try {
       await redis.lPush('audio_queue', JSON.stringify({ sessionId, createdAt: Date.now() }));
-      const { data } = await axios.post<AiTranscribeResponse>(`${config.aiServiceUrl}/transcribe`, {});
+      
+      // Convert blob to FormData for file upload
+      const formData = new FormData();
+      formData.append('file', payload.blob, { filename: 'audio.webm', contentType: 'audio/webm' });
+      
+      const { data } = await axios.post<AiTranscribeResponse>(
+        `${config.aiServiceUrl}/transcribe`,
+        formData,
+        {
+          headers: formData.getHeaders(),
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
+        }
+      );
+      
       const transcript = data.text || '';
+      
       if (meta.engineSessionId && transcript) {
         const { data: next } = await axios.post(`${config.aiServiceUrl}/engine/next`, {
           session_id: meta.engineSessionId,
@@ -168,14 +184,27 @@ io.on('connection', socket => {
         } else if (next.action === 'end_interview') {
           io.to(sessionId).emit('interview:report', next.report);
         }
+      } else if (transcript) {
+        // If no engine session, use fallback analyze endpoint
+        meta.messages.push({ role: 'candidate', text: transcript, ts: Date.now() });
+        io.to(sessionId).emit('candidate:text:ack', { text: transcript });
+        
+        const { data: analyzeData } = await axios.post<AiAnalyzeResponse>(`${config.aiServiceUrl}/analyze`, {
+          text: transcript,
+          industry: meta.industry,
+          level: meta.level
+        });
+        const aiText = analyzeData.reply || 'Thank you for your answer.';
+        meta.messages.push({ role: 'ai', text: aiText, ts: Date.now() });
+        io.to(sessionId).emit('ai:message', { text: aiText });
       } else {
-        const aiText = transcript || 'Audio received, AI will reply soon.';
+        const aiText = 'Audio received, but transcription was empty. Please try again.';
         meta.messages.push({ role: 'ai', text: aiText, ts: Date.now() });
         io.to(sessionId).emit('ai:message', { text: aiText });
       }
     } catch (err) {
       console.error('Audio handling failed', err);
-      io.to(sessionId).emit('system:error', { message: 'Audio handling failed' });
+      io.to(sessionId).emit('system:error', { message: 'Audio handling failed: ' + (err as Error).message });
     }
   });
 
