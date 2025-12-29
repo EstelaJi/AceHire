@@ -10,10 +10,10 @@ class SkillMatcher:
         self.vectorizer = TfidfVectorizer(max_features=1000)
         
     def extract_skills(self, text: str) -> list:
-        """从文本中提取技能"""
+        """Extract skills from text"""
         doc = self.nlp(text)
         
-        # 定义技能相关词性模式
+        # Define skill-related part-of-speech patterns
         skills = []
         skill_keywords = {
             "编程语言": ["Python", "Java", "JavaScript", "C++", "Go", "Rust"],
@@ -22,12 +22,12 @@ class SkillMatcher:
             "技能": ["机器学习", "深度学习", "数据分析", "系统设计"]
         }
         
-        # 提取技能实体
+        # Extract skill entities
         for ent in doc.ents:
             if ent.label_ in ["ORG", "PRODUCT", "TECH"]:
                 skills.append(ent.text)
         
-        # 关键词匹配
+        # Keyword matching
         for category, keywords in skill_keywords.items():
             for keyword in keywords:
                 if keyword.lower() in text.lower():
@@ -36,22 +36,22 @@ class SkillMatcher:
         return list(set(skills))
     
     def match_skills(self, resume_text: str, job_desc: str) -> Dict:
-        """匹配简历技能与职位要求"""
-        # 提取技能
+        """Match resume skills with job requirements"""
+        # Extract skills
         resume_skills = self.extract_skills(resume_text)
         job_skills = self.extract_skills(job_desc)
         
-        # 计算匹配度
+        # Calculate matching degree
         all_skills = list(set(resume_skills + job_skills))
         skill_vectors = self.vectorizer.fit_transform(all_skills)
         
-        # 计算余弦相似度
+        # Calculate cosine similarity
         resume_vec = self.vectorizer.transform(resume_skills)
         job_vec = self.vectorizer.transform(job_skills)
         
         similarity = cosine_similarity(resume_vec, job_vec)
         
-        # 计算匹配分数
+        # Calculate matching score
         matched_skills = []
         missing_skills = []
         
@@ -61,7 +61,7 @@ class SkillMatcher:
             
             for i, resume_skill in enumerate(resume_skills):
                 sim = similarity[i][job_skills.index(job_skill)]
-                if sim > max_sim and sim > 0.6:  # 相似度阈值
+                if sim > max_sim and sim > 0.6:  # Similarity threshold
                     max_sim = sim
                     best_match = resume_skill
             

@@ -1,5 +1,5 @@
 """
-AI语音面试系统 - LangChain 1.1.3版本
+AI Voice Interview System
 """
 
 import os
@@ -10,18 +10,15 @@ from dataclasses import dataclass
 from enum import Enum
 import logging
 
-# ============ 正确的导入方式 ============
-# LangChain 1.1.3 版本导入
 from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 
-# 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ============ 数据模型 ============
+# Data model
 @dataclass
 class CandidateInfo:
     name: str
@@ -53,15 +50,15 @@ class InterviewPhase(Enum):
     SCENARIO = "scenario"
     CLOSING = "closing"
 
-# ============ 面试问题生成器 ============
+# Interview question generator
 class InterviewQuestionGenerator:
-    """面试问题生成器 - LangChain 1.1.3兼容版本"""
+    """Interview question generator"""
     
     def __init__(self, api_key: str, model_name: str = "deepseek-chat"):
-        """初始化生成器"""
+        """Initialize generator"""
         os.environ["DEEPSEEK_API_KEY"] = api_key
         
-        # 使用ChatOpenAI兼容DeepSeek API
+        # Use ChatOpenAI compatible with DeepSeek API
         self.llm = ChatOpenAI(
             model_name=model_name,
             temperature=0.7,
@@ -71,10 +68,10 @@ class InterviewQuestionGenerator:
             api_key=api_key
         )
         
-        # 定义输出解析器
+        # Define output parser
         self.output_parser = JsonOutputParser()
         
-        # 定义问题生成的提示模板
+        # Define prompt template for generating questions
         self.question_prompt = ChatPromptTemplate.from_messages([
             SystemMessage(content="""
             你是一位专业的面试官，擅长根据职位要求和候选人背景生成精准的面试问题。
@@ -112,7 +109,7 @@ class InterviewQuestionGenerator:
             """)
         ])
         
-        # 定义跟进问题提示模板
+        # Define prompt template for generating follow-up questions
         self.follow_up_prompt = ChatPromptTemplate.from_messages([
             SystemMessage(content="""
             你是一位敏锐的面试官，擅长通过追问深入挖掘候选人的能力。
@@ -154,10 +151,10 @@ class InterviewQuestionGenerator:
     ) -> Dict:
         """生成面试问题"""
         try:
-            # 创建链
+            # Create chain
             chain = self.question_prompt | self.llm | self.output_parser
             
-            # 准备输入
+            # Prepare input
             input_data = {
                 "job_description": job_description,
                 "candidate_info": json.dumps(candidate_info, ensure_ascii=False),
@@ -167,10 +164,10 @@ class InterviewQuestionGenerator:
                 "history": history or "这是第一个问题"
             }
             
-            # 调用链
+            # Call chain
             result = chain.invoke(input_data)
             
-            # 添加元数据
+            # Add metadata
             result["metadata"] = {
                 "phase": phase.value,
                 "difficulty": difficulty,
@@ -182,7 +179,7 @@ class InterviewQuestionGenerator:
             
         except Exception as e:
             logger.error(f"生成问题时出错: {e}")
-            # 返回默认问题
+            # Return default question
             return {
                 "question": "请介绍一下你最近参与的一个有挑战性的项目？",
                 "reasoning": "考察项目经验和问题解决能力",
@@ -204,7 +201,7 @@ class InterviewQuestionGenerator:
         strengths: List[str],
         weaknesses: List[str]
     ) -> Dict:
-        """生成跟进问题"""
+        """Generate follow-up question"""
         try:
             chain = self.follow_up_prompt | self.llm | self.output_parser
             
@@ -219,29 +216,29 @@ class InterviewQuestionGenerator:
             return result
             
         except Exception as e:
-            logger.error(f"生成跟进问题时出错: {e}")
+            logger.error(f"Error generating follow-up question: {e}")
             return {
                 "follow_up_question": "你能更详细地说明一下具体的实现细节吗？",
                 "focus_area": "技术细节",
                 "purpose": "深入了解实现方案"
             }
 
-# ============ 回答评估系统 ============
+# Answer evaluation system
 class AnswerEvaluator:
-    """回答评估系统"""
+    """Answer evaluation system"""
     
     def __init__(self, api_key: str):
         os.environ["DEEPSEEK_API_KEY"] = api_key
         
         self.llm = ChatOpenAI(
             model_name="deepseek-chat",
-            temperature=0.3,  # 降低温度以获得更一致的评估
+            temperature=0.3,  # Lower temperature to get more consistent evaluation
             max_tokens=300,
             base_url="https://api.deepseek.com/v1",
             api_key=api_key
         )
         
-        # 创建评估提示
+        # Create evaluation prompt
         self.evaluation_prompt = ChatPromptTemplate.from_messages([
             SystemMessage(content="""
             你是一位专业的面试评估专家。请严格按照评分标准进行评估。
@@ -295,7 +292,7 @@ class AnswerEvaluator:
         answer: str,
         expected_skills: List[str] = None
     ) -> Dict:
-        """评估回答质量"""
+        """Evaluate answer quality"""
         try:
             result = self.chain.invoke({
                 "question": question,
@@ -303,23 +300,23 @@ class AnswerEvaluator:
                 "expected_skills": expected_skills or ["通用技能"]
             })
             
-            # 计算加权总分（转换为10分制）
+            # Calculate weighted total score (convert to 10-point scale)
             scores = result.get("scores", {})
             if scores:
                 total = sum(scores.values()) / len(scores) / 5  # 转换为10分制
                 result["weighted_score"] = round(total, 2)
             
-            # 添加评估时间戳
+            # Add evaluation timestamp
             result["evaluated_at"] = datetime.now().isoformat()
             
             return result
             
         except Exception as e:
-            logger.error(f"评估回答时出错: {e}")
+            logger.error(f"Error evaluating answer: {e}")
             return self._get_default_evaluation()
     
     def _get_default_evaluation(self) -> Dict:
-        """获取默认评估结果"""
+        """Get default evaluation result"""
         return {
             "scores": {
                 "relevance": 5,
@@ -338,17 +335,17 @@ class AnswerEvaluator:
             "error": True
         }
 
-# ============ 语音分析模块 ============
+# Voice analysis module
 class VoiceAnalyzer:
-    """语音特征分析（简化版，实际需要集成语音处理库）"""
+    """Voice feature analysis (simplified version, actual need to integrate voice processing library)"""
     
     def analyze(self, audio_features: Dict) -> Dict:
-        """分析语音特征"""
-        # 这里应该集成实际的语音处理库
-        # 如 librosa, pyAudioAnalysis, 或第三方API
+        """Analyze voice features"""
+        # Here should integrate actual voice processing library
+        # Like librosa, pyAudioAnalysis, or third-party API
         
         return {
-            "speech_rate": audio_features.get("speech_rate", 120),  # 词/分钟
+            "speech_rate": audio_features.get("speech_rate", 120),  # Words per minute
             "pause_frequency": audio_features.get("pause_frequency", 0.5),
             "confidence_score": self._calculate_confidence(audio_features),
             "emotion_analysis": {
@@ -359,11 +356,11 @@ class VoiceAnalyzer:
         }
     
     def _calculate_confidence(self, features: Dict) -> float:
-        """计算自信度分数"""
-        # 简化版算法
+        """Calculate confidence score"""
+        # Simplified algorithm
         score = 0.5
         
-        # 基于语速调整
+        # Based on speech rate
         speech_rate = features.get("speech_rate", 120)
         if 100 <= speech_rate <= 150:
             score += 0.2
@@ -374,9 +371,9 @@ class VoiceAnalyzer:
             
         return min(max(score, 0), 1)
 
-# ============ 核心面试引擎 ============
+# Core interview engine
 class AIInterviewEngine:
-    """AI面试引擎 - 主控制器"""
+    """AI interview engine - Main controller"""
     
     def __init__(
         self,
@@ -385,12 +382,12 @@ class AIInterviewEngine:
         api_key: str,
         config: Optional[Dict] = None
     ):
-        """初始化引擎"""
+        """Initialize engine"""
         self.job_description = job_description
         self.candidate_info = candidate_info
         self.api_key = api_key
         
-        # 配置
+        # Configuration
         self.config = config or {
             "max_questions_per_phase": 3,
             "min_score_to_proceed": 6.0,
@@ -398,12 +395,12 @@ class AIInterviewEngine:
             "time_limit_minutes": 45
         }
         
-        # 初始化组件
+        # Initialize components
         self.question_generator = InterviewQuestionGenerator(api_key)
         self.evaluator = AnswerEvaluator(api_key)
         self.voice_analyzer = VoiceAnalyzer()
         
-        # 面试状态
+        # Interview state
         self.state = {
             "current_phase": InterviewPhase.INTRODUCTION,
             "current_question_index": 0,
@@ -415,7 +412,7 @@ class AIInterviewEngine:
             "scores": []
         }
         
-        # 定义面试流程
+        # Define interview process
         self.phases = [
             (InterviewPhase.INTRODUCTION, "easy", 1),
             (InterviewPhase.TECHNICAL, "medium", 2),
@@ -425,13 +422,13 @@ class AIInterviewEngine:
             (InterviewPhase.CLOSING, "easy", 1)
         ]
         
-        logger.info(f"AI面试引擎初始化完成，候选人: {candidate_info.name}")
+        logger.info(f"AI interview engine initialized, candidate: {candidate_info.name}")
     
     def start_interview(self) -> Dict:
-        """开始面试"""
+        """Start interview"""
         self.state["status"] = "in_progress"
         
-        # 生成第一个问题
+        # Generate first question
         first_question = self._generate_next_question()
         
         return {
@@ -448,17 +445,17 @@ class AIInterviewEngine:
         answer_text: str,
         audio_features: Optional[Dict] = None
     ) -> Dict:
-        """提交回答并获取下一步"""
+        """Submit answer and get next step"""
         if self.state["status"] != "in_progress":
-            return {"error": "面试尚未开始或已结束"}
+            return {"error": "Interview not started or already ended"}
         
-        # 获取当前问题
+        # Get current question
         if not self.state["questions"]:
-            return {"error": "没有当前问题"}
+            return {"error": "No current question"}
         
         current_question = self.state["questions"][-1]
         
-        # 评估回答
+        # Evaluate answer
         expected_skills = current_question.get("expected_skills", [])
         evaluation = self.evaluator.evaluate(
             question=current_question["question"],
@@ -466,12 +463,12 @@ class AIInterviewEngine:
             expected_skills=expected_skills
         )
         
-        # 分析语音特征（如果提供）
+        # Analyze voice features (if provided)
         voice_analysis = {}
         if audio_features:
             voice_analysis = self.voice_analyzer.analyze(audio_features)
         
-        # 保存回答记录
+        # Save answer record
         answer_record = {
             "question": current_question,
             "text": answer_text,
@@ -483,11 +480,11 @@ class AIInterviewEngine:
         self.state["answers"].append(answer_record)
         self.state["scores"].append(evaluation.get("weighted_score", 5.0))
         
-        # 判断下一步行动
+        # Determine next action
         action = self._determine_next_action(evaluation)
         
         if action == "follow_up":
-            # 生成跟进问题
+            # Generate follow-up question
             follow_up = self._generate_follow_up_question(
                 current_question["question"],
                 answer_text,
@@ -505,11 +502,11 @@ class AIInterviewEngine:
             }
             
         elif action == "next_phase":
-            # 进入下一阶段
+            # Move to next phase
             next_phase_result = self._move_to_next_phase()
             
             if next_phase_result["status"] == "interview_completed":
-                # 面试结束
+                # Interview ended
                 final_report = self._generate_final_report()
                 self.state["status"] = "completed"
                 
@@ -523,7 +520,7 @@ class AIInterviewEngine:
                     }
                 }
             else:
-                # 生成下一阶段的问题
+                # Generate next phase question
                 next_question = self._generate_next_question()
                 
                 response = {
@@ -531,10 +528,10 @@ class AIInterviewEngine:
                     "next_question": next_question["question"],
                     "phase": self.state["current_phase"].value,
                     "phase_progress": f"{len(self.state['phase_history'])}/{len(self.phases)}",
-                    "message": f"进入{self.state['current_phase'].value}阶段"
+                    "message": f"Enter {self.state['current_phase'].value} phase"
                 }
         else:
-            # 当前阶段继续
+            # Continue current phase
             next_question = self._generate_next_question()
             
             response = {
@@ -548,14 +545,14 @@ class AIInterviewEngine:
         return response
     
     def _generate_next_question(self) -> Dict:
-        """生成下一个问题"""
-        # 获取当前阶段信息
+        """Generate next question"""
+        # Get current phase information
         phase_info = self._get_current_phase_info()
         
-        # 构建对话历史
+        # Build conversation history
         history = self._build_conversation_history()
         
-        # 生成问题
+        # Generate question
         question = self.question_generator.generate_question(
             job_description=self.job_description,
             candidate_info=self.candidate_info.__dict__,
@@ -565,7 +562,7 @@ class AIInterviewEngine:
             history=history
         )
         
-        # 保存问题
+        # Save question
         question["phase"] = self.state["current_phase"].value
         question["question_number"] = len(self.state["questions"]) + 1
         question["generated_at"] = datetime.now().isoformat()
@@ -581,7 +578,7 @@ class AIInterviewEngine:
         answer: str,
         evaluation: Dict
     ) -> Dict:
-        """生成跟进问题"""
+        """Generate follow-up question"""
         strengths = evaluation.get("strengths", [])
         weaknesses = evaluation.get("weaknesses", [])
         
@@ -592,7 +589,7 @@ class AIInterviewEngine:
             weaknesses=weaknesses
         )
         
-        # 添加元数据
+        # Add metadata
         follow_up["is_follow_up"] = True
         follow_up["original_question"] = original_question
         follow_up["phase"] = self.state["current_phase"].value
@@ -602,23 +599,23 @@ class AIInterviewEngine:
         return follow_up
     
     def _determine_next_action(self, evaluation: Dict) -> str:
-        """根据评估结果决定下一步行动"""
+        """Determine next action based on evaluation result"""
         score = evaluation.get("weighted_score", 5.0)
         
-        # 检查是否应该追问
+        # Check if should follow up
         current_phase_questions = [
             q for q in self.state["questions"] 
             if q.get("phase") == self.state["current_phase"].value
         ]
         
-        # 计算当前阶段的追问次数
+        # Calculate follow-up count in current phase
         follow_up_count = sum(1 for q in current_phase_questions if q.get("is_follow_up", False))
         
-        # 如果分数低且追问次数未超限，追问
+        # If score is low and follow-up count is not exceeded, follow up
         if score < self.config["min_score_to_proceed"] and follow_up_count < self.config["max_follow_ups"]:
             return "follow_up"
         
-        # 检查是否应该进入下一阶段
+        # Check if should move to next phase
         questions_in_current_phase = len([
             q for q in self.state["questions"] 
             if q.get("phase") == self.state["current_phase"].value and not q.get("is_follow_up", False)
@@ -627,12 +624,12 @@ class AIInterviewEngine:
         if questions_in_current_phase >= self._get_current_phase_info()["question_count"]:
             return "next_phase"
         
-        # 否则继续当前阶段
+        # Otherwise continue current phase
         return "continue"
     
     def _move_to_next_phase(self) -> Dict:
-        """移动到下一阶段"""
-        # 记录当前阶段完成
+        """Move to next phase"""
+        # Record current phase completion
         self.state["phase_history"].append({
             "phase": self.state["current_phase"].value,
             "questions_count": len([q for q in self.state["questions"] if q.get("phase") == self.state["current_phase"].value]),
@@ -640,7 +637,7 @@ class AIInterviewEngine:
             "completed_at": datetime.now().isoformat()
         })
         
-        # 查找下一阶段
+        # Find next phase
         current_index = next(
             (i for i, (phase, _, _) in enumerate(self.phases) 
              if phase == self.state["current_phase"]),
@@ -648,10 +645,10 @@ class AIInterviewEngine:
         )
         
         if current_index == -1 or current_index >= len(self.phases) - 1:
-            # 所有阶段已完成
+            # All phases completed
             return {"status": "interview_completed"}
         
-        # 设置下一阶段
+        # Set next phase
         next_phase, next_difficulty, next_count = self.phases[current_index + 1]
         self.state["current_phase"] = next_phase
         self.state["current_question_index"] = 0
@@ -664,7 +661,7 @@ class AIInterviewEngine:
         }
     
     def _get_current_phase_info(self) -> Dict:
-        """获取当前阶段信息"""
+        """Get current phase information"""
         for phase, difficulty, count in self.phases:
             if phase == self.state["current_phase"]:
                 return {
@@ -678,9 +675,9 @@ class AIInterviewEngine:
         return {"phase": "technical", "difficulty": "medium", "question_count": 2, "type": "technical"}
     
     def _build_conversation_history(self) -> str:
-        """构建对话历史"""
+        """Build conversation history"""
         if not self.state["answers"]:
-            return "这是第一个问题"
+            return "This is the first question"
         
         history_lines = []
         for i, (question, answer) in enumerate(zip(self.state["questions"], self.state["answers"])):
@@ -690,7 +687,7 @@ class AIInterviewEngine:
         return "\n".join(history_lines)
     
     def _calculate_phase_average_score(self) -> float:
-        """计算当前阶段的平均分"""
+        """Calculate average score in current phase"""
         phase_answers = [
             a for a, q in zip(self.state["answers"], self.state["questions"]) 
             if q.get("phase") == self.state["current_phase"].value
@@ -703,8 +700,8 @@ class AIInterviewEngine:
         return sum(scores) / len(scores)
     
     def _generate_final_report(self) -> Dict:
-        """生成最终面试报告"""
-        # 使用LLM生成综合报告
+        """Generate final interview report"""
+        # Use LLM to generate comprehensive report
         report_prompt = ChatPromptTemplate.from_messages([
             SystemMessage(content="""
             你是一位资深的人力资源专家和面试评估官。
@@ -737,17 +734,17 @@ class AIInterviewEngine:
             """)
         ])
         
-        # 准备数据
+        # Prepare data
         candidate_info_str = json.dumps(self.candidate_info.__dict__, ensure_ascii=False, indent=2)
         
-        # 汇总各阶段表现
+        # Summarize performance of each phase
         phase_performance = []
         for phase_record in self.state["phase_history"]:
             phase_performance.append(
                 f"{phase_record['phase']}: {phase_record['average_score']:.1f}/10"
             )
         
-        # 关键回答摘要
+        # Key answer summaries
         answer_summaries = []
         for i, (q, a) in enumerate(zip(self.state["questions"][:3], self.state["answers"][:3])):
             answer_summaries.append(
@@ -756,7 +753,7 @@ class AIInterviewEngine:
                 f"得分: {a['evaluation'].get('weighted_score', 5.0):.1f}/10"
             )
         
-        # 创建报告链
+        # Create report chain
         api_key = os.getenv("DEEPSEEK_API_KEY", "")
         report_chain = report_prompt | ChatOpenAI(
             model_name="deepseek-chat",
@@ -777,10 +774,10 @@ class AIInterviewEngine:
             })
             
         except Exception as e:
-            logger.error(f"生成报告时出错: {e}")
-            report = f"报告生成失败: {str(e)}"
+            logger.error(f"Error generating report: {e}")
+            report = f"Report generation failed: {str(e)}"
         
-        # 计算总体评分
+        # Calculate overall score
         overall_score = self._calculate_overall_score()
         
         return {
@@ -805,12 +802,12 @@ class AIInterviewEngine:
         if not self.state["scores"]:
             return 0.0
         
-        # 可以加权计算不同阶段的分数
+        # Can weight different phases scores
         phase_weights = {
             InterviewPhase.INTRODUCTION.value: 0.1,
             InterviewPhase.TECHNICAL.value: 0.5,
             InterviewPhase.BEHAVIORAL.value: 0.3,
-            InterviewPhase.SCENARIO.value: 0.8,  # 场景题权重高
+            InterviewPhase.SCENARIO.value: 0.8,  # Scenario questions have higher weight
             InterviewPhase.CLOSING.value: 0.1
         }
         
@@ -828,26 +825,26 @@ class AIInterviewEngine:
         return weighted_sum / total_weight
     
     def _get_recommendation_level(self, score: float) -> str:
-        """根据分数获取推荐等级"""
+        """Get recommendation level based on score"""
         if score >= 8.5:
-            return "强烈推荐"
+            return "Strongly recommend"
         elif score >= 7.0:
-            return "推荐"
+            return "Recommend"
         elif score >= 5.5:
-            return "待考虑"
+            return "Consider"
         elif score >= 4.0:
-            return "有保留推荐"
+            return "Reserved recommend"
         else:
-            return "不推荐"
+            return "Not recommend"
 
 # ============ 使用示例 ============
 def main():
-    """使用示例"""
+    """Example usage"""
     
-    # 配置API密钥（实际使用时应该从环境变量读取）
+    # Configure API key (should be read from environment variable in production)
     API_KEY = os.getenv("DEEPSEEK_API_KEY", "your-api-key-here")
     
-    # 职位描述
+    # Job description
     JOB_DESCRIPTION = """
     职位：高级Python后端开发工程师
     
@@ -868,7 +865,7 @@ def main():
     7. 良好的沟通和团队协作能力
     """
     
-    # 候选人信息
+    # Candidate information
     candidate = CandidateInfo(
         name="张三",
         years_experience=6,
@@ -878,8 +875,8 @@ def main():
         education="计算机科学硕士"
     )
     
-    # 创建面试引擎
-    print("正在初始化AI面试引擎...")
+    # Create interview engine
+    print("Initializing AI interview engine...")
     interview = AIInterviewEngine(
         job_description=JOB_DESCRIPTION,
         candidate_info=candidate,
@@ -892,14 +889,14 @@ def main():
         }
     )
     
-    # 开始面试
-    print("\n=== AI语音面试开始 ===")
+    # Start interview
+    print("\n=== AI voice interview started ===")
     start_result = interview.start_interview()
-    print(f"阶段: {start_result['phase']}")
-    print(f"问题: {start_result['question']}")
+    print(f"Phase: {start_result['phase']}")
+    print(f"Question: {start_result['question']}")
     
-    # 模拟候选人回答
-    print("\n模拟候选人回答...")
+    # Simulate candidate answer
+    print("\nSimulating candidate answer...")
     answer = """
     我在上一家公司主要负责电商平台的后端架构设计。我们使用Django作为主要框架，
     部署在AWS上，使用Docker容器化。我设计了订单处理微服务，将原来单体应用中的
@@ -914,34 +911,34 @@ def main():
     这个重构使系统TPS从原来的100提升到了500，同时降低了服务器成本约30%。
     """
     
-    # 提交回答
+    # Submit answer
     response = interview.submit_answer(answer)
     
-    print(f"\nAI响应:")
-    print(f"动作: {response['action']}")
+    print(f"\nAI response:")
+    print(f"Action: {response['action']}")
     if response['action'] == 'follow_up':
-        print(f"跟进问题: {response['next_question']}")
-        print(f"前一个问题得分: {response['previous_score']}/10")
-        print(f"反馈: {response['feedback'][:100]}...")
+        print(f"Follow-up question: {response['next_question']}")
+        print(f"Previous question score: {response['previous_score']}/10")
+        print(f"Feedback: {response['feedback'][:100]}...")
     elif response['action'] == 'next_phase':
-        print(f"新阶段: {response['phase']}")
-        print(f"新问题: {response['next_question']}")
+        print(f"New phase: {response['phase']}")
+        print(f"New question: {response['next_question']}")
     elif response['action'] == 'continue':
-        print(f"继续当前阶段")
-        print(f"新问题: {response['next_question']}")
+        print(f"Continue current phase")
+        print(f"New question: {response['next_question']}")
     
-    # 模拟结束面试并生成报告
-    print("\n=== 面试结束 ===")
-    # 这里可以继续模拟更多问答...
+    # Simulate end interview and generate report
+    print("\n=== Interview ended ===")
+    # Here you can continue to simulate more questions...
     
-    # 手动触发生成报告（实际应该在所有阶段完成后自动生成）
+    # Manually trigger report generation (should be done automatically after all phases are completed)
     # final_report = interview._generate_final_report()
-    # print(f"最终报告摘要:")
-    # print(f"总体评分: {final_report['overall_score']}/10")
-    # print(f"推荐等级: {final_report['recommendation_level']}")
+    # print(f"Final report summary:")
+    # print(f"Overall score: {final_report['overall_score']}/10")
+    # print(f"Recommendation level: {final_report['recommendation_level']}")
 
 if __name__ == "__main__":
-    # 设置环境变量（演示用，实际应该从安全的地方获取）
+    # Configure environment variable (for demonstration, should be read from secure location in production)
     os.environ["DEEPSEEK_API_KEY"] = "your-actual-api-key"
     
     main()

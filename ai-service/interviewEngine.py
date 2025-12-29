@@ -39,10 +39,10 @@ class AIInterviewEngine:
     async def conduct_interview(self, audio_stream):
         """主面试流程"""
         
-        # 1. 转录语音
+        # 1. Transcribe audio
         transcript = await self.asr.transcribe_realtime(audio_stream)
         
-        # 如果是第一个问题
+        # If it's the first question
         if not self.interview_state["questions_asked"]:
             from interviewQuestionGenerator import InterviewPhase
             question_result = self.question_generator.generate_question(
@@ -56,7 +56,7 @@ class AIInterviewEngine:
             self.interview_state["current_question"] = question
             return {"action": "ask_question", "question": question}
         
-        # 2. 评估回答
+        # 2. Evaluate answer
         current_question = self.interview_state["current_question"]
         evaluation = self.evaluator.evaluate_answer(
             question=current_question,
@@ -64,7 +64,7 @@ class AIInterviewEngine:
             expected_points=self._get_expected_points(current_question)
         )
         
-        # 3. 保存回答和评分
+        # 3. Save answer and score
         self.interview_state["answers"].append({
             "question": current_question,
             "answer": transcript["text"],
@@ -73,15 +73,15 @@ class AIInterviewEngine:
         })
         self.interview_state["scores"].append(evaluation["total_score"])
         
-        # 4. 决定下一步
+        # 4. Decide next step
         if self._should_continue_interview():
-            # 生成下一个问题或追问
+            # Generate next question or follow-up
             if evaluation["total_score"] < 6.0:
-                # 分数较低，追问
+                # Score is low, follow-up
                 strengths = []
                 weaknesses = []
                 if "feedback" in evaluation:
-                    # 从 feedback 中提取优势与不足（简化处理）
+                    # Extract strengths and weaknesses from feedback (simplified)
                     feedback = evaluation["feedback"]
                     if "较好" in feedback or "不错" in feedback:
                         strengths = ["回答基本相关"]
@@ -95,7 +95,7 @@ class AIInterviewEngine:
                 )
                 next_question = follow_up_result.get("follow_up_question", "请详细说明一下。")
             else:
-                # 生成新问题
+                # Generate new question
                 from interviewQuestionGenerator import InterviewPhase
                 next_result = self.question_generator.generate_question(
                     job_description=self.job_desc,
@@ -116,19 +116,19 @@ class AIInterviewEngine:
                 "previous_score": evaluation["total_score"]
             }
         else:
-            # 结束面试
+            # End interview
             self.interview_state["status"] = "completed"
             return await self._generate_final_report()
     
     def _should_continue_interview(self) -> bool:
-        """判断是否继续面试"""
-        # 基于问题数量、时间、分数等因素
+        """Determine if continue interview"""
+        # Based on number of questions, time, score etc.
         questions_asked = len(self.interview_state["questions_asked"])
         avg_score = sum(self.interview_state["scores"]) / len(self.interview_state["scores"])
         
-        if questions_asked >= 10:  # 最多10个问题
+        if questions_asked >= 10:  # Maximum 10 questions
             return False
-        elif avg_score < 4.0 and questions_asked >= 5:  # 表现太差
+        elif avg_score < 4.0 and questions_asked >= 5:  # Performance is too bad
             return False
         elif datetime.now() - self.interview_state["start_time"] > timedelta(minutes=30):
             return False
@@ -136,18 +136,18 @@ class AIInterviewEngine:
         return True
     
     async def _generate_final_report(self) -> Dict:
-        """生成最终面试报告"""
-        # 分析语音特征
+        """Generate final interview report"""
+        # Analyze audio features
         audio_features = self.voice_analyzer.analyze_speech_patterns(
             self.interview_state.get("audio_file"),
             " ".join([a["answer"] for a in self.interview_state["answers"]])
         )
         
-        # 技能匹配
+        # Skill matching
         resume_text = self.candidate_info.get("resume", "")
         skill_match = self.skill_matcher.match_skills(resume_text, self.job_desc)
         
-        # 综合评分
+        # Overall score
         technical_score = sum(self.interview_state["scores"]) / len(self.interview_state["scores"])
         communication_score = audio_features["confidence_indicator"] / 10  # 转换为10分制
         overall_score = technical_score * 0.7 + communication_score * 0.3

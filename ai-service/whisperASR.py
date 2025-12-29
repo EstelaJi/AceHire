@@ -23,7 +23,7 @@ class WhisperASR:
         language: Optional[str] = "zh",
         initial_prompt: Optional[str] = None
     ) -> Dict:
-        """实时转录音频流"""
+        """Real-time transcribe audio stream"""
         options = {
             "language": language,
             "task": "transcribe",
@@ -43,7 +43,7 @@ class WhisperASR:
         return result
     
     def transcribe_file(self, audio_path: str) -> Dict:
-        """转录音频文件"""
+        """Transcribe audio file"""
         result = self.model.transcribe(audio_path)
         return {
             "text": result["text"],

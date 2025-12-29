@@ -6,24 +6,24 @@ from transformers import Wav2Vec2ForSequenceClassification
 
 class VoiceAnalysis:
     def __init__(self):
-        # 语音情感分析模型
+        # Voice emotion analysis model
         self.emotion_model = Wav2Vec2ForSequenceClassification.from_pretrained(
             "ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition"
         )
         
-        # 语音质量检测
+        # Voice quality detection
         self.speech_rate_model = self._load_speech_rate_model()
     
     def analyze_emotion(self, audio_path: str) -> Dict:
-        """分析语音中的情感"""
+        """Analyze emotion in voice"""
         waveform, sample_rate = torchaudio.load(audio_path)
         
-        # 预处理
+        # Preprocessing
         if sample_rate != 16000:
             resampler = torchaudio.transforms.Resample(sample_rate, 16000)
             waveform = resampler(waveform)
         
-        # 情感分类
+        # Emotion classification
         with torch.no_grad():
             outputs = self.emotion_model(waveform)
             predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
@@ -46,14 +46,14 @@ class VoiceAnalysis:
         }
     
     def analyze_speech_patterns(self, audio_path: str, transcript: str) -> Dict:
-        """分析语音模式"""
-        # 计算语速
+        """Analyze speech patterns"""
+        # Calculate speech rate
         words_per_minute = self._calculate_speech_rate(audio_path, transcript)
         
-        # 检测填充词
+        # Detect filler words
         filler_words = self._detect_filler_words(transcript)
         
-        # 分析停顿模式
+        # Analyze pause pattern
         pause_pattern = self._analyze_pauses(audio_path)
         
         return {
@@ -69,22 +69,22 @@ class VoiceAnalysis:
     def _calculate_confidence_indicator(self, wpm: float, 
                                        fillers: list, 
                                        pauses: Dict) -> float:
-        """计算自信度指标"""
+        """Calculate confidence indicator"""
         score = 100
         
-        # 语速调整（正常范围120-150wpm）
+        # Speech rate adjustment (normal range 120-150wpm)
         if wpm < 100:
             score -= (100 - wpm) * 0.5
         elif wpm > 180:
             score -= (wpm - 180) * 0.3
             
-        # 填充词扣分
+        # Filler words deduction
         score -= len(fillers) * 2
         
-        # 停顿扣分
-        if pauses["frequency"] > 10:  # 每分钟停顿超过10次
+        # Pause deduction
+        if pauses["frequency"] > 10:  # Pause more than 10 times per minute
             score -= 10
-        if pauses["average_duration"] > 2.0:  # 平均停顿超过2秒
+        if pauses["average_duration"] > 2.0:  # Average pause more than 2 seconds
             score -= 5
             
         return max(0, min(100, score))

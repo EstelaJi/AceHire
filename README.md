@@ -14,19 +14,19 @@ Mono-repo scaffold for an AI-assisted interview web app.
 - `ai-service/` – FastAPI microservice stub
 
 ## Getting Started (local)
-### 一键启动前后端（Yarn workspaces）
+### One-Command Start (Yarn workspaces)
 ```bash
-yarn install          # 在仓库根目录安装并拉取 frontend/backend 依赖
-yarn dev              # 同时启动 frontend (Vite) 与 backend (Node + Socket.IO)
+yarn install          # Install dependencies for frontend and backend at repo root
+yarn dev              # Start both frontend (Vite) and backend (Node + Socket.IO)
 ```
-需要先准备 Postgres/Redis/AI 服务（见下方）。
+Make sure PostgreSQL, Redis, and AI service are running first (see below).
 
-### 面试元数据与报告
-- 前端选择行业/职位等级后点击“开始面试”，所有问题会带上上下文发送。
-- “生成报告” 按钮会请求后端返回当前会话的统计摘要（占位实现）。
-- 后端目前将对话存储在内存 Map；生产环境请落库（PostgreSQL）并持久化音频/文本。
+### Interview Metadata & Reports
+- After selecting industry/job level on the frontend and clicking "Start Interview", all questions will be sent with context.
+- The "Generate Report" button requests the backend to return a statistical summary of the current session (placeholder implementation).
+- The backend currently stores conversations in an in-memory Map; for production, persist to database (PostgreSQL) and store audio/text.
 
-### 分别启动
+### Start Services Separately
 1) Frontend
 ```bash
 cd frontend
@@ -51,17 +51,17 @@ cd ai-service
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 设置 API Key（选择一种方式）：
-# 方式1: 创建 .env 文件（推荐）
+# Set API Key (choose one method):
+# Method 1: Create .env file (recommended)
 echo "DEEPSEEK_API_KEY=your-deepseek-api-key" > .env
 
-# 方式2: 命令行设置
+# Method 2: Set via command line
 export DEEPSEEK_API_KEY=your-deepseek-api-key
 
 uvicorn main:app --reload --port 8000
 ```
 
-**重要**: 需要设置 `DEEPSEEK_API_KEY` 环境变量。推荐使用 `.env` 文件（代码会自动加载）。
+**Important**: You need to set the `DEEPSEEK_API_KEY` environment variable. Using a `.env` file is recommended (the code will automatically load it).
 
 ## Notes
 - WebSockets are needed; Vercel serverless does not natively support long-lived Socket.IO. For production, host the backend (and AI service) on a WebSocket-friendly runtime (e.g., a small VM/container) and deploy only `frontend/` to Vercel.

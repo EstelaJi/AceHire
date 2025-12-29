@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from faster_whisper import WhisperModel
 from dotenv import load_dotenv
 
-# 加载 .env 文件中的环境变量
+# Load environment variables from .env file
 load_dotenv()
 
 from interviewEngine import AIInterviewEngine  # type: ignore
@@ -61,7 +61,7 @@ async def health():
 
 @app.post("/analyze")
 async def analyze(payload: AnalyzeRequest):
-  """分析候选人回答并生成面试官回复"""
+  """Analyze candidate's answer and generate interviewer's reply"""
   try:
     from langchain_openai import ChatOpenAI
     from langchain_core.prompts import ChatPromptTemplate
@@ -79,7 +79,7 @@ async def analyze(payload: AnalyzeRequest):
       api_key=api_key
     )
     
-    # 构建提示词
+    # Build prompt
     prompt = ChatPromptTemplate.from_messages([
       SystemMessage(content=f"""你是一位专业的AI面试官，正在面试一位{payload.level or '中级'}级别的{payload.industry or '全栈'}开发工程师。
 
@@ -133,7 +133,6 @@ async def question(payload: QuestionRequest):
 async def engine_start(payload: EngineStartRequest):
   session_id = os.urandom(16).hex()
   candidate_info = payload.candidate_info or {}
-  # 确保 API key 从环境变量获取
   if "api_key" not in candidate_info:
     candidate_info["api_key"] = os.getenv("DEEPSEEK_API_KEY", "")
   engine = AIInterviewEngine(
@@ -141,7 +140,7 @@ async def engine_start(payload: EngineStartRequest):
     candidate_info=candidate_info
   )
   _engines[session_id] = engine
-  # 先生成首问
+  # Generate first question
   first_result = engine.question_generator.generate_question(
     job_description=engine.job_desc,
     candidate_info=engine.candidate_info,
@@ -161,12 +160,12 @@ async def engine_next(payload: EngineNextRequest):
   if not engine:
     raise HTTPException(status_code=404, detail="engine session not found")
 
-  # 假设已完成转写，直接用文本驱动
+  # Assume transcription is done, directly use text to drive
   class DummyStream:
     def __aiter__(self):
       yield payload.text
 
-  # 复用现有逻辑：如果没有问题则会生成；这里直接调用 evaluate 流程
+  # Reuse existing logic: if no question, generate one; here directly call evaluate process
   result = await engine.conduct_interview({"text": payload.text or ""})
   return result
 
