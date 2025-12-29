@@ -1,4 +1,4 @@
-# AI Interview App (Voice Only)
+# AI Interview App
 
 Mono-repo scaffold for an AI-assisted interview web app.
 
