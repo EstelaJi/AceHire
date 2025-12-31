@@ -72,6 +72,65 @@ app.get('/health', async (_req, res) => {
   }
 });
 
+// Question Bank API endpoints
+app.get('/api/questions', async (req, res) => {
+  try {
+    const { level, type, limit = 50, offset = 0 } = req.query;
+    
+    let query = 'SELECT * FROM questions WHERE 1=1';
+    const params: any[] = [];
+    
+    if (level && level !== 'all') {
+      query += ' AND level = $' + (params.length + 1);
+      params.push(level);
+    }
+    
+    if (type && type !== 'all') {
+      query += ' AND type = $' + (params.length + 1);
+      params.push(type);
+    }
+    
+    query += ' ORDER BY RANDOM() LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+    params.push(limit, offset);
+    
+    const result = await pool.query(query, params);
+    res.json({ questions: result.rows });
+  } catch (err) {
+    console.error('Failed to fetch questions', err);
+    res.status(500).json({ error: 'Failed to fetch questions' });
+  }
+});
+
+app.get('/api/questions/random', async (req, res) => {
+  try {
+    const { count = 6 } = req.query;
+    const result = await pool.query(
+      'SELECT * FROM questions ORDER BY RANDOM() LIMIT $1',
+      [count]
+    );
+    res.json({ questions: result.rows });
+  } catch (err) {
+    console.error('Failed to fetch random questions', err);
+    res.status(500).json({ error: 'Failed to fetch random questions' });
+  }
+});
+
+app.get('/api/questions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT * FROM questions WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    
+    res.json({ question: result.rows[0] });
+  } catch (err) {
+    console.error('Failed to fetch question', err);
+    res.status(500).json({ error: 'Failed to fetch question' });
+  }
+});
+
 const interviews = new Map<string, InterviewMeta>(); // sessionId -> meta
 
 async function sendInitialQuestion(sessionId: string, meta: InterviewMeta) {
