@@ -4,6 +4,7 @@ import HomePage from './home';
 import SetupPage from './setup';
 import InterviewPage from './interview';
 import ReportPage from './report';
+import QuestionBankPage from './question-bank';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/setup" element={<SetupPage />} />
         <Route path="/interview" element={<InterviewPage />} />
         <Route path="/report" element={<ReportPage />} />
+        <Route path="/question-bank" element={<QuestionBankPage />} />
       </Routes>
     </ConfigProvider>
   );
