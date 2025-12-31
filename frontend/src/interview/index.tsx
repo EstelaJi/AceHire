@@ -12,8 +12,6 @@ import { Sparkles, Mic, MicOff, Square, Send } from "lucide-react";
 // const { Header, Content } = Layout;
 // const { Title, Paragraph, Text } = Typography;
 
-type Role = "ai" | "candidate";
-
 type Message = {
     role: "assistant" | "user"
     content: string
@@ -43,7 +41,7 @@ export default function InterviewPage() {
   const [isInterviewStarted, setIsInterviewStarted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const [socketConnected, setSocketConnected] = useState(false);
+  const [, setSocketConnected] = useState(false);
   const [industry, setIndustry] = useState<string>("");
   const [level, setLevel] = useState<string>("");
   const [sessionId, setSessionId] = useState("");
@@ -155,7 +153,9 @@ export default function InterviewPage() {
         // Send all audio chunks to backend
         if (audioChunksRef.current.length > 0) {
           const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-          socket.emit("candidate:audio", { blob: audioBlob });
+          // Convert Blob to ArrayBuffer for Socket.IO transmission
+          const arrayBuffer = await audioBlob.arrayBuffer();
+          socket.emit("candidate:audio", { blob: arrayBuffer });
           audioChunksRef.current = [];
         }
       };
