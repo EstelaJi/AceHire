@@ -1,22 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Input,
-  Button,
-  Card,
-  message,
-} from "antd";
+import { Input, Button, Card, message } from "antd";
 import { io, Socket } from "socket.io-client";
 import { Sparkles, Mic, MicOff, Square, Send } from "lucide-react";
+import { AIAvatar } from "../components/ai-avatar";
 
 // const { Header, Content } = Layout;
 // const { Title, Paragraph, Text } = Typography;
 
 type Message = {
-    role: "assistant" | "user"
-    content: string
-    timestamp: Date
-  }
+  role: "assistant" | "user";
+  content: string;
+  timestamp: Date;
+};
 
 type Report = {
   industry?: string;
@@ -39,7 +35,7 @@ export default function InterviewPage() {
   const [inputValue, setInputValue] = useState("");
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [isInterviewStarted, setIsInterviewStarted] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [, setSocketConnected] = useState(false);
   const [industry, setIndustry] = useState<string>("");
@@ -147,19 +143,21 @@ export default function InterviewPage() {
           audioChunksRef.current.push(evt.data);
         }
       };
-      
+
       recorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
         // Send all audio chunks to backend
         if (audioChunksRef.current.length > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          const audioBlob = new Blob(audioChunksRef.current, {
+            type: "audio/webm",
+          });
           // Convert Blob to ArrayBuffer for Socket.IO transmission
           const arrayBuffer = await audioBlob.arrayBuffer();
           socket.emit("candidate:audio", { blob: arrayBuffer });
           audioChunksRef.current = [];
         }
       };
-      
+
       recorder.start(1000); // Collect data every second
       setIsRecording(true);
       message.info("Recording started...");
@@ -189,7 +187,7 @@ export default function InterviewPage() {
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
     const text = inputValue.trim();
-    
+
     // Add user message to UI
     setMessages((prev) => [
       ...prev,
@@ -199,37 +197,36 @@ export default function InterviewPage() {
         timestamp: new Date(),
       },
     ]);
-    
+
     // Send to backend
     socket.emit("candidate:text", { text });
-    
+
     // Clear input
     setInputValue("");
-    
+
     // Auto scroll to bottom
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 100);
   };
 
-
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+      e.preventDefault();
+      handleSendMessage();
     }
-  }
+  };
 
   const toggleVoiceMode = () => {
-    setIsVoiceMode(!isVoiceMode)
+    setIsVoiceMode(!isVoiceMode);
     if (isRecording) {
-      setIsRecording(false)
+      setIsRecording(false);
     }
-  }
+  };
 
   const toggleRecording = () => {
     if (!isVoiceMode) return;
-    
+
     if (isRecording) {
       stopRecording();
     } else {
@@ -242,18 +239,21 @@ export default function InterviewPage() {
     if (isRecording) {
       stopRecording();
     }
-    
+
     // Request report from backend
     if (sessionId) {
       socket.emit("interview:report");
     } else {
       // Fallback: store interview data and navigate
-      sessionStorage.setItem("interviewData", JSON.stringify({ 
-        messages, 
-        completedAt: new Date(),
-        industry,
-        level,
-      }));
+      sessionStorage.setItem(
+        "interviewData",
+        JSON.stringify({
+          messages,
+          completedAt: new Date(),
+          industry,
+          level,
+        })
+      );
       navigate("/report");
     }
   };
@@ -262,13 +262,19 @@ export default function InterviewPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-lg w-full p-8 text-center">
-          <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+          {/* <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Sparkles className="size-8 text-primary" />
+          </div> */}
+          <div className="flex justify-center mb-4">
+            <AIAvatar size="lg" isSpeaking={false} />
           </div>
-          <h1 className="text-2xl font-bold text-foreground mb-3">Ready to Begin?</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-3">
+            Ready to Begin?
+          </h1>
           <p className="text-muted-foreground mb-6 leading-relaxed">
-            Take a deep breath and relax. This is a practice session in a safe environment. You'll be asked a series of
-            questions—answer naturally and at your own pace.
+            Take a deep breath and relax. This is a practice session in a safe
+            environment. You'll be asked a series of questions—answer naturally
+            and at your own pace.
           </p>
           <div className="flex gap-3">
             <Button onClick={() => navigate("/setup")} className="flex-1">
@@ -280,7 +286,7 @@ export default function InterviewPage() {
           </div>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -288,9 +294,10 @@ export default function InterviewPage() {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm flex-shrink-0">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
+            {/* <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
               <Sparkles className="size-5 text-primary-foreground" />
-            </div>
+            </div> */}
+            <AIAvatar size="sm" isSpeaking={true} />
             <span className="font-semibold text-lg text-foreground">
               InterviewPrep
             </span>
@@ -309,9 +316,7 @@ export default function InterviewPage() {
               )}
               {isVoiceMode ? "Voice" : "Text"}
             </Button>
-            <Button  onClick={endInterview}>
-              End Interview
-            </Button>
+            <Button onClick={endInterview}>End Interview</Button>
           </div>
         </div>
       </header>
@@ -325,6 +330,14 @@ export default function InterviewPage() {
                 message.role === "user" ? "justify-end" : "justify-start"
               }`}
             >
+              {message.role === "assistant" && (
+                <div className="mr-3 mt-1">
+                  <AIAvatar
+                    size="md"
+                    isSpeaking={index === messages.length - 1}
+                  />
+                </div>
+              )}
               <div
                 className={`max-w-[80%] rounded-xl px-4 py-3 ${
                   message.role === "user"
@@ -349,7 +362,7 @@ export default function InterviewPage() {
           {isVoiceMode ? (
             <div className="flex flex-col items-center gap-4 py-4">
               <Button
-              type="primary"
+                type="primary"
                 onClick={toggleRecording}
                 className={`size-16 rounded-full ${
                   isRecording ? "bg-destructive hover:bg-destructive/90" : ""
