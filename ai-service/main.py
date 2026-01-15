@@ -131,27 +131,42 @@ async def question(payload: QuestionRequest):
 
 @app.post("/engine/start")
 async def engine_start(payload: EngineStartRequest):
-  session_id = os.urandom(16).hex()
-  candidate_info = payload.candidate_info or {}
-  if "api_key" not in candidate_info:
-    candidate_info["api_key"] = os.getenv("DEEPSEEK_API_KEY", "")
-  engine = AIInterviewEngine(
-    job_description=payload.job_description or "General full-stack role",
-    candidate_info=candidate_info
-  )
-  _engines[session_id] = engine
-  # Generate first question
-  first_result = engine.question_generator.generate_question(
-    job_description=engine.job_desc,
-    candidate_info=engine.candidate_info,
-    phase=InterviewPhase.INTRODUCTION,
-    difficulty="easy",
-    question_type="general"
-  )
-  first_question = first_result.get("question", "请介绍一下你自己。")
-  engine.interview_state["current_question"] = first_question
-  engine.interview_state["questions_asked"].append(first_question)
-  return {"session_id": session_id, "question": first_question}
+  try:
+    session_id = os.urandom(16).hex()
+    candidate_info = payload.candidate_info or {}
+    
+    # Ensure API key is set
+    api_key = candidate_info.get("api_key") or os.getenv("DEEPSEEK_API_KEY", "")
+    if not api_key:
+      raise ValueError("DEEPSEEK_API_KEY is required. Please set it in environment variables or candidate_info.")
+    candidate_info["api_key"] = api_key
+    
+    # Create engine
+    engine = AIInterviewEngine(
+      job_description=payload.job_description or "General full-stack role",
+      candidate_info=candidate_info
+    )
+    _engines[session_id] = engine
+    
+    # Generate first question
+    first_result = engine.question_generator.generate_question(
+      job_description=engine.job_desc,
+      candidate_info=engine.candidate_info,
+      phase=InterviewPhase.INTRODUCTION,
+      difficulty="easy",
+      question_type="general"
+    )
+    first_question = first_result.get("question", "Please introduce yourself.")
+    engine.interview_state["current_question"] = first_question
+    engine.interview_state["questions_asked"].append(first_question)
+    
+    return {"session_id": session_id, "question": first_question}
+  except Exception as e:
+    import traceback
+    error_msg = f"Error starting interview engine: {str(e)}"
+    print(error_msg)
+    print(traceback.format_exc())
+    raise HTTPException(status_code=500, detail=error_msg)
 
 
 @app.post("/engine/next")

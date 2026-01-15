@@ -29,7 +29,7 @@ interface CandidateTextPayload {
 }
 
 interface CandidateAudioPayload {
-  blob?: unknown;
+  blob?: Blob | ArrayBuffer | Buffer | string;
 }
 
 interface InterviewStartPayload {
@@ -103,16 +103,35 @@ io.on('connection', socket => {
     meta.industry = payload.industry ?? null;
     meta.level = payload.level ?? null;
     try {
-      const { data } = await axios.post<{ session_id: string; question: string }>(`${config.aiServiceUrl}/engine/start`, {
-        job_description: `${meta.industry || 'general'} ${meta.level || ''} role`,
-        candidate_info: { level: meta.level, industry: meta.industry }
-      });
+      console.log(`Starting interview engine for ${meta.industry} ${meta.level} role`);
+      const { data } = await axios.post<{ session_id: string; question: string }>(
+        `${config.aiServiceUrl}/engine/start`,
+        {
+          job_description: `${meta.industry || 'general'} ${meta.level || ''} role`,
+          candidate_info: { level: meta.level, industry: meta.industry }
+        },
+        {
+          timeout: 30000, // 30 second timeout
+        }
+      );
       meta.engineSessionId = data.session_id;
       const first = data.question || 'Tell me about yourself.';
       meta.messages.push({ role: 'ai', text: first, ts: Date.now() });
       io.to(sessionId).emit('ai:message', { text: first });
+      console.log(`Interview engine started successfully, session: ${data.session_id}`);
     } catch (err) {
-      console.error('Engine start failed, fallback to simple question', (err as Error).message);
+      const axiosError = err as { response?: { status?: number; data?: unknown }; message?: string };
+      if (axiosError.response) {
+        console.error(`Engine start failed: ${axiosError.response.status}`, axiosError.response.data);
+        io.to(sessionId).emit('system:error', {
+          message: `Failed to start interview engine: ${axiosError.response.status}. Using fallback.`
+        });
+      } else {
+        console.error('Engine start failed:', (err as Error).message);
+        io.to(sessionId).emit('system:error', {
+          message: `Failed to start interview engine: ${(err as Error).message}. Using fallback.`
+        });
+      }
       await sendInitialQuestion(sessionId, meta);
     }
   });
@@ -151,25 +170,53 @@ io.on('connection', socket => {
   });
 
   socket.on('candidate:audio', async (payload: CandidateAudioPayload = {}) => {
-    if (!payload.blob) return;
+    if (!payload.blob) {
+      console.error('No audio blob received');
+      return;
+    }
     try {
       await redis.lPush('audio_queue', JSON.stringify({ sessionId, createdAt: Date.now() }));
       
-      // Convert blob to FormData for file upload
+      // Convert blob to Buffer for FormData
+      let audioBuffer: Buffer;
+      if (Buffer.isBuffer(payload.blob)) {
+        audioBuffer = payload.blob;
+      } else if (payload.blob instanceof ArrayBuffer) {
+        audioBuffer = Buffer.from(payload.blob);
+      } else if (typeof payload.blob === 'string') {
+        // Base64 encoded string
+        audioBuffer = Buffer.from(payload.blob, 'base64');
+      } else {
+        // Blob object - convert to ArrayBuffer first
+        console.error('Unsupported blob type, expected Buffer or ArrayBuffer');
+        io.to(sessionId).emit('system:error', { message: 'Unsupported audio format' });
+        return;
+      }
+      
+      // Create FormData for file upload
       const formData = new FormData();
-      formData.append('file', payload.blob, { filename: 'audio.webm', contentType: 'audio/webm' });
+      formData.append('file', audioBuffer, {
+        filename: 'audio.webm',
+        contentType: 'audio/webm',
+      });
+      
+      console.log(`Sending audio to AI service for transcription, size: ${audioBuffer.length} bytes`);
       
       const { data } = await axios.post<AiTranscribeResponse>(
         `${config.aiServiceUrl}/transcribe`,
         formData,
         {
-          headers: formData.getHeaders(),
+          headers: {
+            ...formData.getHeaders(),
+          },
           maxContentLength: Infinity,
           maxBodyLength: Infinity,
+          timeout: 30000, // 30 second timeout for transcription
         }
       );
       
       const transcript = data.text || '';
+      console.log(`Transcription result: ${transcript.substring(0, 100)}...`);
       
       if (meta.engineSessionId && transcript) {
         const { data: next } = await axios.post(`${config.aiServiceUrl}/engine/next`, {
@@ -203,8 +250,20 @@ io.on('connection', socket => {
         io.to(sessionId).emit('ai:message', { text: aiText });
       }
     } catch (err) {
-      console.error('Audio handling failed', err);
-      io.to(sessionId).emit('system:error', { message: 'Audio handling failed: ' + (err as Error).message });
+      console.error('Audio handling failed:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Audio handling failed';
+      const axiosError = err as { response?: { status?: number; data?: unknown }; message?: string };
+      
+      if (axiosError.response) {
+        console.error(`AI service error: ${axiosError.response.status}`, axiosError.response.data);
+        io.to(sessionId).emit('system:error', { 
+          message: `Audio transcription failed: ${axiosError.response.status} - ${JSON.stringify(axiosError.response.data)}` 
+        });
+      } else {
+        io.to(sessionId).emit('system:error', { 
+          message: `Audio handling failed: ${errorMessage}` 
+        });
+      }
     }
   });
 
