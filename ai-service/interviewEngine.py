@@ -18,11 +18,13 @@ class AIInterviewEngine:
         # 初始化所有组件
         self.asr = WhisperASR(model_size="base")
         api_key = os.getenv("DEEPSEEK_API_KEY", candidate_info.get("api_key", ""))
+        if not api_key:
+            raise ValueError("DEEPSEEK_API_KEY is required. Please set it in environment variables or candidate_info.")
         self.question_generator = InterviewQuestionGenerator(
             api_key=api_key,
-            job_description=job_description
+            model_name="deepseek-chat"
         )
-        self.evaluator = AnswerEvaluator()
+        self.evaluator = AnswerEvaluator()  # AnswerEvaluator doesn't need API key
         self.voice_analyzer = VoiceAnalysis()
         self.skill_matcher = SkillMatcher()
         
