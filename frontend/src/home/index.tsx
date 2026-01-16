@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button, Select, Card, Tag } from 'antd';
-import { Sparkles, MessageSquare, FileText, TrendingUp, Filter } from "lucide-react";
+import { Sparkles, MessageSquare, FileText, TrendingUp, Filter, Code2 } from "lucide-react";
 import { useState, useEffect } from 'react';
 import { questions, Question } from './questionsData';
 
@@ -90,6 +90,12 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button type="primary" size="large">
                 <Link to="/setup" style={{ color: 'inherit', textDecoration: 'none' }}>Start Practice Session</Link>
+              </Button>
+              <Button size="large">
+                <Link to="/coding" style={{ color: 'inherit', textDecoration: 'none' }}>
+                  <Code2 className="inline-block mr-2 size-4" />
+                  Coding Interview
+                </Link>
               </Button>
               <Button>
                 <a href="#how-it-works" style={{ color: 'inherit', textDecoration: 'none' }}>Learn More</a>
