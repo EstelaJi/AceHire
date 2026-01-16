@@ -1,4 +1,13 @@
+import os
+# Disable MPS backend to avoid compatibility issues on macOS
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "0"
+os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
+
 import torch
+# Explicitly disable MPS if available
+if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+    torch.backends.mps.is_available = lambda: False
+
 import torchaudio
 import torch.nn as nn
 from typing import Dict, List
@@ -6,13 +15,16 @@ from transformers import Wav2Vec2ForSequenceClassification
 
 class VoiceAnalysis:
     def __init__(self):
+        # Explicitly use CPU to avoid MPS issues on macOS
+        self.device = "cpu"
+        
         # Voice emotion analysis model
         self.emotion_model = Wav2Vec2ForSequenceClassification.from_pretrained(
             "ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition"
-        )
+        ).to(self.device)
         
-        # Voice quality detection
-        self.speech_rate_model = self._load_speech_rate_model()
+        # Voice quality detection (placeholder - not implemented yet)
+        self.speech_rate_model = None
     
     def analyze_emotion(self, audio_path: str) -> Dict:
         """Analyze emotion in voice"""
@@ -22,6 +34,9 @@ class VoiceAnalysis:
         if sample_rate != 16000:
             resampler = torchaudio.transforms.Resample(sample_rate, 16000)
             waveform = resampler(waveform)
+        
+        # Move waveform to device
+        waveform = waveform.to(self.device)
         
         # Emotion classification
         with torch.no_grad():
@@ -64,6 +79,37 @@ class VoiceAnalysis:
             "confidence_indicator": self._calculate_confidence_indicator(
                 words_per_minute, filler_words, pause_pattern
             )
+        }
+    
+    def _load_speech_rate_model(self):
+        """Placeholder for speech rate model loading"""
+        return None
+    
+    def _calculate_speech_rate(self, audio_path: str, transcript: str) -> float:
+        """Calculate words per minute from transcript"""
+        # Simple calculation: word count / duration estimate
+        words = len(transcript.split())
+        # Estimate duration (rough approximation)
+        # Average speaking rate is about 150 words per minute
+        # For now, return a default value
+        return 120.0  # Default WPM
+    
+    def _detect_filler_words(self, transcript: str) -> List[str]:
+        """Detect filler words in transcript"""
+        filler_words_list = ["um", "uh", "er", "ah", "like", "you know", "嗯", "那个", "就是"]
+        found = []
+        transcript_lower = transcript.lower()
+        for filler in filler_words_list:
+            if filler in transcript_lower:
+                found.append(filler)
+        return found
+    
+    def _analyze_pauses(self, audio_path: str) -> Dict:
+        """Analyze pause patterns in audio"""
+        # Placeholder implementation
+        return {
+            "frequency": 5.0,  # pauses per minute
+            "average_duration": 1.0  # seconds
         }
     
     def _calculate_confidence_indicator(self, wpm: float, 
