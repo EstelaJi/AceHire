@@ -72,6 +72,50 @@ app.get('/health', async (_req, res) => {
   }
 });
 
+// Coding interview API endpoints
+app.post('/api/coding/generate-question', async (req, res) => {
+  try {
+    const { difficulty } = req.body;
+    
+    console.log(`Generating coding question with difficulty: ${difficulty}`);
+    
+    const { data } = await axios.post(
+      `${config.aiServiceUrl}/coding/generate-question`,
+      { difficulty },
+      { timeout: 30000 }
+    );
+    
+    console.log('AI Service response:', JSON.stringify(data, null, 2));
+    
+    if (!data.question) {
+      console.error('AI Service returned null question:', data.error || 'Unknown error');
+      res.status(500).json({ error: data.error || 'Failed to generate question' });
+    } else {
+      res.json({ question: data.question });
+    }
+  } catch (err) {
+    console.error('Generate question failed:', (err as Error).message);
+    res.status(500).json({ error: 'Failed to generate question: ' + (err as Error).message });
+  }
+});
+
+app.post('/api/coding/evaluate-code', async (req, res) => {
+  try {
+    const { questionId, code, language } = req.body;
+    
+    const { data } = await axios.post(
+      `${config.aiServiceUrl}/coding/evaluate-code`,
+      { questionId, code, language },
+      { timeout: 60000 }
+    );
+    
+    res.json({ result: data.result });
+  } catch (err) {
+    console.error('Evaluate code failed:', (err as Error).message);
+    res.status(500).json({ error: 'Failed to evaluate code' });
+  }
+});
+
 const interviews = new Map<string, InterviewMeta>(); // sessionId -> meta
 
 async function sendInitialQuestion(sessionId: string, meta: InterviewMeta) {

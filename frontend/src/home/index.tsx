@@ -39,13 +39,16 @@ export default function HomePage() {
               your skills with AI-powered practice sessions.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button type="primary" size="large">
-                <Link to="/setup" style={{ color: 'inherit', textDecoration: 'none' }}>Start Practice Session</Link>
-              </Button>
-              <Button>
-                <a href="#how-it-works" style={{ color: 'inherit', textDecoration: 'none' }}>Learn More</a>
-              </Button>
-            </div>
+                  <Button type="primary" size="large">
+                    <Link to="/setup" style={{ color: 'inherit', textDecoration: 'none' }}>Start Practice Session</Link>
+                  </Button>
+                  <Button>
+                    <Link to="/coding" style={{ color: 'inherit', textDecoration: 'none' }}>Coding Interview</Link>
+                  </Button>
+                  <Button>
+                    <a href="#how-it-works" style={{ color: 'inherit', textDecoration: 'none' }}>Learn More</a>
+                  </Button>
+                </div>
           </div>
         </section>
 
