@@ -10,9 +10,9 @@ export interface AppConfig {
 }
 
 export const config: AppConfig = {
-  port: Number(process.env.PORT) || 4000,
+  port: Number(process.env.PORT) || 3001,
   postgresUrl: process.env.POSTGRES_URL || 'postgres://postgres:postgres@localhost:5432/interview_app',
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
-  aiServiceUrl: process.env.AI_SERVICE_URL || 'http://localhost:8000'
+  aiServiceUrl: process.env.AI_SERVICE_URL || 'http://localhost:8080'
 };
 

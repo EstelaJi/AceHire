@@ -72,6 +72,35 @@ app.get('/health', async (_req, res) => {
   }
 });
 
+// Coding interview endpoints
+app.post('/api/coding/generate', async (req, res) => {
+  try {
+    const { difficulty } = req.body;
+    const { data } = await axios.post(`${config.aiServiceUrl}/coding/generate`, {
+      difficulty
+    });
+    res.json(data);
+  } catch (err) {
+    console.error('Error generating coding question:', err);
+    res.status(500).json({ error: 'Failed to generate coding question' });
+  }
+});
+
+app.post('/api/coding/evaluate', async (req, res) => {
+  try {
+    const { questionId, code, language } = req.body;
+    const { data } = await axios.post(`${config.aiServiceUrl}/coding/evaluate`, {
+      questionId,
+      code,
+      language
+    });
+    res.json(data);
+  } catch (err) {
+    console.error('Error evaluating coding solution:', err);
+    res.status(500).json({ error: 'Failed to evaluate coding solution' });
+  }
+});
+
 const interviews = new Map<string, InterviewMeta>(); // sessionId -> meta
 
 async function sendInitialQuestion(sessionId: string, meta: InterviewMeta) {

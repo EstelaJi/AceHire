@@ -91,6 +91,9 @@ export default function HomePage() {
               <Button type="primary" size="large">
                 <Link to="/setup" style={{ color: 'inherit', textDecoration: 'none' }}>Start Practice Session</Link>
               </Button>
+              <Button type="primary" size="large">
+                <Link to="/coding" style={{ color: 'inherit', textDecoration: 'none' }}>Coding Interview</Link>
+              </Button>
               <Button>
                 <a href="#how-it-works" style={{ color: 'inherit', textDecoration: 'none' }}>Learn More</a>
               </Button>
