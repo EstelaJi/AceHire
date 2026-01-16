@@ -1,4 +1,13 @@
+import os
+# Disable MPS backend to avoid compatibility issues on macOS
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "0"
+os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
+
 import torch
+# Explicitly disable MPS if available
+if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+    torch.backends.mps.is_available = lambda: False
+
 import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from typing import Dict, List
@@ -13,7 +22,15 @@ class AnswerEvaluator:
     """
 
     def __init__(self, model_name: str = "BAAI/bge-reranker-v2-m3", device: str = None):
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        # Explicitly set device, avoiding MPS on macOS due to compatibility issues
+        if device:
+            self.device = device
+        elif torch.cuda.is_available():
+            self.device = "cuda"
+        else:
+            # Use CPU on macOS to avoid MPS issues
+            self.device = "cpu"
+        
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_name).to(self.device)
         self.scoring_weights = {
