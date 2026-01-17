@@ -8,6 +8,7 @@ import axios from 'axios';
 import { v4 as uuid } from 'uuid';
 import FormData from 'form-data';
 import { config } from './config';
+import { getQuestions, getQuestionById } from './models/question';
 
 type Role = 'ai' | 'candidate';
 
@@ -69,6 +70,35 @@ app.get('/health', async (_req, res) => {
     res.json({ status: 'ok' });
   } catch (err) {
     res.status(500).json({ status: 'error', detail: (err as Error).message });
+  }
+});
+
+app.get('/api/questions', async (req, res) => {
+  try {
+    const { level, type, industry } = req.query;
+    const filters: any = {};
+    if (level) filters.level = level;
+    if (type) filters.type = type;
+    if (industry) filters.industry = industry;
+    const questions = await getQuestions(filters);
+    res.json(questions);
+  } catch (err) {
+    console.error('Error fetching questions:', err);
+    res.status(500).json({ error: 'Failed to fetch questions' });
+  }
+});
+
+app.get('/api/questions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const question = await getQuestionById(id);
+    if (!question) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    res.json(question);
+  } catch (err) {
+    console.error('Error fetching question:', err);
+    res.status(500).json({ error: 'Failed to fetch question' });
   }
 });
 

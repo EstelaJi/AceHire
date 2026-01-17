@@ -1,16 +1,34 @@
 import { useState, useEffect } from 'react';
-import { Select, Card, Tag, Button } from 'antd';
+import { Select, Card, Tag, Button, Spin } from 'antd';
 import { Filter, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import { questions, Question } from '../home/questionsData';
+import { getQuestions, Question } from '../api/questions';
 
 export default function QuestionBankPage() {
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
 
   useEffect(() => {
-    let filtered = [...questions];
+    loadQuestions();
+  }, []);
+
+  async function loadQuestions() {
+    try {
+      setLoading(true);
+      const data = await getQuestions();
+      setAllQuestions(data);
+    } catch (error) {
+      console.error('Failed to load questions:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    let filtered = [...allQuestions];
     
     if (selectedLevel !== 'all') {
       filtered = filtered.filter(q => q.level === selectedLevel);
@@ -21,7 +39,7 @@ export default function QuestionBankPage() {
     }
     
     setFilteredQuestions(filtered);
-  }, [selectedLevel, selectedType]);
+  }, [selectedLevel, selectedType, allQuestions]);
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -92,8 +110,13 @@ export default function QuestionBankPage() {
           </div>
 
           {/* Questions Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredQuestions.map((question) => (
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <Spin size="large" />
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredQuestions.map((question) => (
               <Link key={question.id} to={`/question-bank/${question.id}`} style={{ textDecoration: 'none' }}>
                 <Card className="h-full cursor-pointer hover:shadow-lg transition-shadow duration-200">
                   <div className="flex flex-col gap-4">
@@ -106,9 +129,10 @@ export default function QuestionBankPage() {
                 </Card>
               </Link>
             ))}
-          </div>
+            </div>
+          )}
 
-          {filteredQuestions.length === 0 && (
+          {!loading && filteredQuestions.length === 0 && (
             <div className="text-center py-20">
               <p className="text-muted-foreground text-lg">No questions found matching your filters.</p>
             </div>
