@@ -1,16 +1,44 @@
 import { useState, useEffect } from 'react';
-import { Select, Card, Tag, Button } from 'antd';
+import { Select, Card, Tag, Button, Spin, Alert } from 'antd';
 import { Filter, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import { questions, Question } from '../home/questionsData';
+import { Question } from '../home/questionsData';
 
 export default function QuestionBankPage() {
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
 
   useEffect(() => {
-    let filtered = [...questions];
+    const fetchQuestions = async () => {
+      try {
+        const response = await fetch('http://localhost:4000/api/questions');
+        if (!response.ok) {
+          throw new Error('Failed to fetch questions');
+        }
+        const data = await response.json();
+        setAllQuestions(data.questions);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching questions:', err);
+        setError('Failed to load question bank. Showing local data instead.');
+        // Fallback to local data if API fails
+        import('../home/questionsData').then(module => {
+          setAllQuestions(module.questions);
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestions();
+  }, []);
+
+  useEffect(() => {
+    let filtered = [...allQuestions];
     
     if (selectedLevel !== 'all') {
       filtered = filtered.filter(q => q.level === selectedLevel);
@@ -21,7 +49,7 @@ export default function QuestionBankPage() {
     }
     
     setFilteredQuestions(filtered);
-  }, [selectedLevel, selectedType]);
+  }, [allQuestions, selectedLevel, selectedType]);
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -92,7 +120,22 @@ export default function QuestionBankPage() {
           </div>
 
           {/* Questions Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading && (
+            <div className="flex justify-center items-center py-20">
+              <Spin size="large" />
+            </div>
+          )}
+          {error && (
+            <Alert
+              message="Error"
+              description={error}
+              type="error"
+              showIcon
+              className="mb-8"
+            />
+          )}
+          {!loading && filteredQuestions.length > 0 && (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredQuestions.map((question) => (
               <Link key={question.id} to={`/question-bank/${question.id}`} style={{ textDecoration: 'none' }}>
                 <Card className="h-full cursor-pointer hover:shadow-lg transition-shadow duration-200">
@@ -108,6 +151,7 @@ export default function QuestionBankPage() {
             ))}
           </div>
 
+          )}
           {filteredQuestions.length === 0 && (
             <div className="text-center py-20">
               <p className="text-muted-foreground text-lg">No questions found matching your filters.</p>

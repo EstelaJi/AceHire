@@ -8,6 +8,15 @@ import axios from 'axios';
 import { v4 as uuid } from 'uuid';
 import FormData from 'form-data';
 import { config } from './config';
+import {
+  createQuestionsTable,
+  getAllQuestions,
+  getQuestionById,
+  createQuestion,
+  updateQuestion,
+  deleteQuestion,
+} from './questions/model';
+import { seedQuestions } from './questions/seedData';
 
 type Role = 'ai' | 'candidate';
 
@@ -62,6 +71,12 @@ const redis = createClient({ url: config.redisUrl });
 redis.on('error', err => console.error('Redis error', err));
 
 const pool = new Pool({ connectionString: config.postgresUrl });
+
+// Initialize questions table
+pool.on('connect', async () => {
+  await createQuestionsTable(pool);
+  await seedQuestions(pool);
+});
 
 app.get('/health', async (_req, res) => {
   try {
@@ -286,6 +301,79 @@ io.on('connection', socket => {
     socket.leave(sessionId);
     interviews.delete(sessionId);
   });
+});
+
+// Question Bank API endpoints
+app.get('/api/questions', async (_req, res) => {
+  try {
+    const questions = await getAllQuestions(pool);
+    res.json({ questions });
+  } catch (err) {
+    console.error('Failed to fetch questions:', err);
+    res.status(500).json({ error: 'Failed to fetch questions' });
+  }
+});
+
+app.get('/api/questions/:id', async (req, res) => {
+  try {
+    const question = await getQuestionById(pool, req.params.id);
+    if (!question) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    res.json(question);
+  } catch (err) {
+    console.error('Failed to fetch question:', err);
+    res.status(500).json({ error: 'Failed to fetch question' });
+  }
+});
+
+app.post('/api/questions', async (req, res) => {
+  try {
+    const { question, level, type, industry, explanation, examples } = req.body;
+    if (!question || !level || !type || !explanation || !examples) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const newQuestion = await createQuestion(pool, {
+      question,
+      level,
+      type,
+      industry,
+      explanation,
+      examples,
+    });
+    res.status(201).json(newQuestion);
+  } catch (err) {
+    console.error('Failed to create question:', err);
+    res.status(500).json({ error: 'Failed to create question' });
+  }
+});
+
+app.put('/api/questions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    const updatedQuestion = await updateQuestion(pool, id, updates);
+    if (!updatedQuestion) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    res.json(updatedQuestion);
+  } catch (err) {
+    console.error('Failed to update question:', err);
+    res.status(500).json({ error: 'Failed to update question' });
+  }
+});
+
+app.delete('/api/questions/:id', async (req, res) => {
+  try {
+    const deleted = await deleteQuestion(pool, req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    res.json({ message: 'Question deleted successfully' });
+  } catch (err) {
+    console.error('Failed to delete question:', err);
+    res.status(500).json({ error: 'Failed to delete question' });
+  }
 });
 
 async function start() {

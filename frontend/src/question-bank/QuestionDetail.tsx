@@ -1,13 +1,52 @@
 import { useParams, Link } from 'react-router-dom';
-import { Card, Tag, Button, Typography, Divider } from 'antd';
+import { Card, Tag, Button, Typography, Spin, Alert } from 'antd';
 import { ArrowLeft, Lightbulb, MessageSquare } from 'lucide-react';
-import { questions, Question } from '../home/questionsData';
+import { useState, useEffect } from 'react';
+import { Question } from '../home/questionsData';
 
 const { Title, Paragraph } = Typography;
 
 export default function QuestionDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const question = questions.find(q => q.id === id);
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchQuestion = async () => {
+      try {
+        const response = await fetch(`http://localhost:4000/api/questions/${id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch question');
+        }
+        const data = await response.json();
+        setQuestion(data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching question:', err);
+        setError('Failed to load question. Showing local data instead.');
+        // Fallback to local data if API fails
+        import('../home/questionsData').then(module => {
+          const localQuestion = module.questions.find(q => q.id === id);
+          setQuestion(localQuestion || null);
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestion();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   if (!question) {
     return (
@@ -55,6 +94,15 @@ export default function QuestionDetailPage() {
 
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
+          {error && (
+            <Alert
+              message="Error"
+              description={error}
+              type="error"
+              showIcon
+              className="mb-8"
+            />
+          )}
           {/* Question Header */}
           <Card className="mb-6 shadow-lg">
             <div className="flex flex-col gap-4">
