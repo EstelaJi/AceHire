@@ -94,15 +94,17 @@ export default function QuestionBankPage() {
           {/* Questions Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredQuestions.map((question) => (
-              <Card key={question.id} className="h-full">
-                <div className="flex flex-col gap-4">
-                  <div className="flex gap-2 flex-wrap">
-                    <Tag color={getLevelColor(question.level)}>{question.level}</Tag>
-                    <Tag color={getTypeColor(question.type)}>{question.type}</Tag>
+              <Link key={question.id} to={`/question-bank/${question.id}`} style={{ textDecoration: 'none' }}>
+                <Card className="h-full cursor-pointer hover:shadow-lg transition-shadow duration-200">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex gap-2 flex-wrap">
+                      <Tag color={getLevelColor(question.level)}>{question.level}</Tag>
+                      <Tag color={getTypeColor(question.type)}>{question.type}</Tag>
+                    </div>
+                    <p className="text-foreground leading-relaxed">{question.question}</p>
                   </div>
-                  <p className="text-foreground leading-relaxed">{question.question}</p>
-                </div>
-              </Card>
+                </Card>
+              </Link>
             ))}
           </div>
 
