@@ -5,7 +5,9 @@
   "main": "src/server.ts",
   "scripts": {
     "dev": "tsx src/server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:create-table": "psql $POSTGRES_URL -f src/database/schema.sql",
+    "db:seed": "tsx src/database/seed/importFromFrontend.ts"
   },
   "dependencies": {
     "axios": "^1.7.2",

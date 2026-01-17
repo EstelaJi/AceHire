@@ -8,6 +8,8 @@ import axios from 'axios';
 import { v4 as uuid } from 'uuid';
 import FormData from 'form-data';
 import { config } from './config';
+import { initDatabase } from './database/connection';
+import { questionsRouter } from './routes/questions';
 
 type Role = 'ai' | 'candidate';
 
@@ -62,6 +64,8 @@ const redis = createClient({ url: config.redisUrl });
 redis.on('error', err => console.error('Redis error', err));
 
 const pool = new Pool({ connectionString: config.postgresUrl });
+
+app.use('/api/questions', questionsRouter);
 
 app.get('/health', async (_req, res) => {
   try {
@@ -290,6 +294,7 @@ io.on('connection', socket => {
 
 async function start() {
   await redis.connect();
+  await initDatabase();
   server.listen(config.port, () => {
     console.log(`API server listening on http://localhost:${config.port}`);
   });

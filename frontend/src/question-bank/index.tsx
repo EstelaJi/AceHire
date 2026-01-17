@@ -1,26 +1,36 @@
 import { useState, useEffect } from 'react';
-import { Select, Card, Tag, Button } from 'antd';
+import { Select, Card, Tag, Button, Spin } from 'antd';
 import { Filter, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import { questions, Question } from '../home/questionsData';
+import { questionApi, Question } from '../services/api';
 
 export default function QuestionBankPage() {
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let filtered = [...questions];
-    
-    if (selectedLevel !== 'all') {
-      filtered = filtered.filter(q => q.level === selectedLevel);
-    }
-    
-    if (selectedType !== 'all') {
-      filtered = filtered.filter(q => q.type === selectedType);
-    }
-    
-    setFilteredQuestions(filtered);
+    const fetchQuestions = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const filters = {
+          level: selectedLevel !== 'all' ? selectedLevel : undefined,
+          type: selectedType !== 'all' ? selectedType : undefined,
+        };
+        const data = await questionApi.getAll(filters);
+        setFilteredQuestions(data);
+      } catch (err) {
+        setError('Failed to load questions');
+        console.error('Error loading questions:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestions();
   }, [selectedLevel, selectedType]);
 
   const getLevelColor = (level: string) => {
@@ -91,27 +101,45 @@ export default function QuestionBankPage() {
             />
           </div>
 
-          {/* Questions Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredQuestions.map((question) => (
-              <Link key={question.id} to={`/question-bank/${question.id}`} style={{ textDecoration: 'none' }}>
-                <Card className="h-full cursor-pointer hover:shadow-lg transition-shadow duration-200">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex gap-2 flex-wrap">
-                      <Tag color={getLevelColor(question.level)}>{question.level}</Tag>
-                      <Tag color={getTypeColor(question.type)}>{question.type}</Tag>
-                    </div>
-                    <p className="text-foreground leading-relaxed">{question.question}</p>
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-
-          {filteredQuestions.length === 0 && (
+          {/* Loading State */}
+          {loading && (
             <div className="text-center py-20">
-              <p className="text-muted-foreground text-lg">No questions found matching your filters.</p>
+              <Spin size="large" />
             </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="text-center py-20">
+              <p className="text-red-500 text-lg">{error}</p>
+            </div>
+          )}
+
+          {/* Questions Grid */}
+          {!loading && !error && (
+            <>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredQuestions.map((question) => (
+                  <Link key={question.id} to={`/question-bank/${question.id}`} style={{ textDecoration: 'none' }}>
+                    <Card className="h-full cursor-pointer hover:shadow-lg transition-shadow duration-200">
+                      <div className="flex flex-col gap-4">
+                        <div className="flex gap-2 flex-wrap">
+                          <Tag color={getLevelColor(question.level)}>{question.level}</Tag>
+                          <Tag color={getTypeColor(question.type)}>{question.type}</Tag>
+                        </div>
+                        <p className="text-foreground leading-relaxed">{question.question}</p>
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+
+              {filteredQuestions.length === 0 && (
+                <div className="text-center py-20">
+                  <p className="text-muted-foreground text-lg">No questions found matching your filters.</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
