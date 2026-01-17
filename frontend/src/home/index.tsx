@@ -1,24 +1,44 @@
 import { Link } from "react-router-dom";
-import { Button, Select, Card, Tag } from 'antd';
+import { Button, Select, Card, Tag, Spin, Alert } from 'antd';
 import { Sparkles, MessageSquare, FileText, TrendingUp, Filter } from "lucide-react";
 import { useState, useEffect } from 'react';
-import { questions, Question } from './questionsData';
+import { Question } from './questionsData';
 
 export default function HomePage() {
-  const [randomQuestions, setRandomQuestions] = useState<Question[]>([]);
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
 
   useEffect(() => {
-    // Get 6 random questions initially
-    const shuffled = [...questions].sort(() => 0.5 - Math.random());
-    setRandomQuestions(shuffled.slice(0, 6));
-    setFilteredQuestions(shuffled.slice(0, 6));
+    const fetchQuestions = async () => {
+      try {
+        const response = await fetch('http://localhost:4000/api/questions');
+        if (!response.ok) {
+          throw new Error('Failed to fetch questions');
+        }
+        const data = await response.json();
+        setAllQuestions(data.questions);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching questions:', err);
+        setError('Failed to load question bank. Showing local data instead.');
+        // Fallback to local data if API fails
+        import('./questionsData').then(module => {
+          setAllQuestions(module.questions);
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestions();
   }, []);
 
   useEffect(() => {
-    let filtered = [...questions];
+    let filtered = [...allQuestions];
     
     if (selectedLevel !== 'all') {
       filtered = filtered.filter(q => q.level === selectedLevel);
@@ -31,7 +51,7 @@ export default function HomePage() {
     // Get up to 6 random questions from filtered results
     const shuffled = [...filtered].sort(() => 0.5 - Math.random());
     setFilteredQuestions(shuffled.slice(0, 6));
-  }, [selectedLevel, selectedType]);
+  }, [allQuestions, selectedLevel, selectedType]);
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -194,6 +214,20 @@ export default function HomePage() {
 
         {/* Question Bank Section */}
         <section id="question-bank" className="container mx-auto px-4 py-20">
+          {loading && (
+            <div className="flex justify-center items-center py-12">
+              <Spin size="large" />
+            </div>
+          )}
+          {error && (
+            <Alert
+              message="Error"
+              description={error}
+              type="error"
+              showIcon
+              className="mb-8"
+            />
+          )}
           <div className="max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground text-balance">

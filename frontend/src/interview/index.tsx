@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input, Button, Card, message } from "antd";
 import { io, Socket } from "socket.io-client";
-import { Sparkles, Mic, MicOff, Square, Send } from "lucide-react";
+import { Mic, MicOff, Square, Send } from "lucide-react";
 import { AIAvatar } from "../components/ai-avatar";
 
 // const { Header, Content } = Layout;
