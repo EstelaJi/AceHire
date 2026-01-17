@@ -1,13 +1,41 @@
 import { useParams, Link } from 'react-router-dom';
-import { Card, Tag, Button, Typography, Divider } from 'antd';
+import { Card, Tag, Button, Typography, Divider, Spin } from 'antd';
 import { ArrowLeft, Lightbulb, MessageSquare } from 'lucide-react';
-import { questions, Question } from '../home/questionsData';
+import { useState, useEffect } from 'react';
+import { getQuestionById, Question } from '../api/questions';
 
 const { Title, Paragraph } = Typography;
 
 export default function QuestionDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const question = questions.find(q => q.id === id);
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function loadQuestion() {
+      try {
+        setLoading(true);
+        const data = await getQuestionById(id!);
+        setQuestion(data);
+      } catch (error) {
+        console.error('Failed to load question:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (id) {
+      loadQuestion();
+    }
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   if (!question) {
     return (
