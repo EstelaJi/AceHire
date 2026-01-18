@@ -8,6 +8,7 @@ import axios from 'axios';
 import { v4 as uuid } from 'uuid';
 import FormData from 'form-data';
 import { config } from './config';
+import { QuestionService } from './services/questionService';
 
 type Role = 'ai' | 'candidate';
 
@@ -62,6 +63,7 @@ const redis = createClient({ url: config.redisUrl });
 redis.on('error', err => console.error('Redis error', err));
 
 const pool = new Pool({ connectionString: config.postgresUrl });
+const questionService = new QuestionService(pool);
 
 app.get('/health', async (_req, res) => {
   try {
@@ -69,6 +71,65 @@ app.get('/health', async (_req, res) => {
     res.json({ status: 'ok' });
   } catch (err) {
     res.status(500).json({ status: 'error', detail: (err as Error).message });
+  }
+});
+
+app.get('/api/questions', async (req, res) => {
+  try {
+    const { level, type } = req.query;
+    let questions;
+    
+    if (level) {
+      questions = await questionService.getQuestionsByLevel(level as string);
+    } else if (type) {
+      questions = await questionService.getQuestionsByType(type as string);
+    } else {
+      questions = await questionService.getAllQuestions();
+    }
+    
+    res.json(questions);
+  } catch (err) {
+    console.error('Failed to fetch questions:', err);
+    res.status(500).json({ error: 'Failed to fetch questions', detail: (err as Error).message });
+  }
+});
+
+app.post('/api/questions', async (req, res) => {
+  try {
+    const { question, level, type, industry, explanation, examples } = req.body;
+    
+    if (!question || !level || !type || !explanation || !examples) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const validLevels = ['easy', 'medium', 'hard'];
+    const validTypes = ['behavior', 'technical', 'product', 'system design'];
+    
+    if (!validLevels.includes(level)) {
+      return res.status(400).json({ error: 'Invalid level. Must be easy, medium, or hard' });
+    }
+    
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ error: 'Invalid type. Must be behavior, technical, product, or system design' });
+    }
+    
+    if (!Array.isArray(examples)) {
+      return res.status(400).json({ error: 'Examples must be an array' });
+    }
+    
+    const newQuestion = await questionService.createQuestion({
+      question,
+      level,
+      type,
+      industry,
+      explanation,
+      examples
+    });
+    
+    res.status(201).json(newQuestion);
+  } catch (err) {
+    console.error('Failed to create question:', err);
+    res.status(500).json({ error: 'Failed to create question', detail: (err as Error).message });
   }
 });
 

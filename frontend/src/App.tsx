@@ -6,6 +6,7 @@ import InterviewPage from './interview';
 import ReportPage from './report';
 import QuestionBankPage from './question-bank';
 import QuestionDetailPage from './question-bank/QuestionDetail';
+import AddQuestionPage from './question-bank/AddQuestion';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/interview" element={<InterviewPage />} />
         <Route path="/report" element={<ReportPage />} />
         <Route path="/question-bank" element={<QuestionBankPage />} />
+        <Route path="/question-bank/add" element={<AddQuestionPage />} />
         <Route path="/question-bank/:id" element={<QuestionDetailPage />} />
       </Routes>
     </ConfigProvider>

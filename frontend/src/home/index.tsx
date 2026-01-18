@@ -1,24 +1,39 @@
 import { Link } from "react-router-dom";
-import { Button, Select, Card, Tag } from 'antd';
+import { Button, Select, Card, Tag, Spin } from 'antd';
 import { Sparkles, MessageSquare, FileText, TrendingUp, Filter } from "lucide-react";
 import { useState, useEffect } from 'react';
-import { questions, Question } from './questionsData';
+import { getQuestions, Question } from '../api/questions';
 
 export default function HomePage() {
   const [randomQuestions, setRandomQuestions] = useState<Question[]>([]);
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
 
   useEffect(() => {
-    // Get 6 random questions initially
-    const shuffled = [...questions].sort(() => 0.5 - Math.random());
-    setRandomQuestions(shuffled.slice(0, 6));
-    setFilteredQuestions(shuffled.slice(0, 6));
+    const fetchQuestions = async () => {
+      try {
+        setLoading(true);
+        const questions = await getQuestions();
+        setAllQuestions(questions);
+        
+        const shuffled = [...questions].sort(() => 0.5 - Math.random());
+        setRandomQuestions(shuffled.slice(0, 6));
+        setFilteredQuestions(shuffled.slice(0, 6));
+      } catch (error) {
+        console.error('Failed to fetch questions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestions();
   }, []);
 
   useEffect(() => {
-    let filtered = [...questions];
+    let filtered = [...allQuestions];
     
     if (selectedLevel !== 'all') {
       filtered = filtered.filter(q => q.level === selectedLevel);
@@ -28,10 +43,9 @@ export default function HomePage() {
       filtered = filtered.filter(q => q.type === selectedType);
     }
     
-    // Get up to 6 random questions from filtered results
     const shuffled = [...filtered].sort(() => 0.5 - Math.random());
     setFilteredQuestions(shuffled.slice(0, 6));
-  }, [selectedLevel, selectedType]);
+  }, [selectedLevel, selectedType, allQuestions]);
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -238,19 +252,25 @@ export default function HomePage() {
             </div>
 
             {/* Questions Grid */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredQuestions.map((question) => (
-                <Card key={question.id} className="h-full">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex gap-2 flex-wrap">
-                      <Tag color={getLevelColor(question.level)}>{question.level}</Tag>
-                      <Tag color={getTypeColor(question.type)}>{question.type}</Tag>
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <Spin size="large" />
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredQuestions.map((question) => (
+                  <Card key={question.id} className="h-full">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex gap-2 flex-wrap">
+                        <Tag color={getLevelColor(question.level)}>{question.level}</Tag>
+                        <Tag color={getTypeColor(question.type)}>{question.type}</Tag>
+                      </div>
+                      <p className="text-foreground leading-relaxed">{question.question}</p>
                     </div>
-                    <p className="text-foreground leading-relaxed">{question.question}</p>
-                  </div>
-                </Card>
-              ))}
-            </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>
