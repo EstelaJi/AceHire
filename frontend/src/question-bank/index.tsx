@@ -1,16 +1,35 @@
 import { useState, useEffect } from 'react';
-import { Select, Card, Tag, Button } from 'antd';
-import { Filter, ArrowLeft } from "lucide-react";
+import { Select, Card, Tag, Button, Modal, Form, Input, message } from 'antd';
+import { Filter, ArrowLeft, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
-import { questions, Question } from '../home/questionsData';
+import { Question, fallbackQuestions, fetchQuestions, addQuestion } from '../home/questionsData';
 
 export default function QuestionBankPage() {
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [form] = Form.useForm();
 
+  // Fetch questions from API on component mount
   useEffect(() => {
-    let filtered = [...questions];
+    const loadQuestions = async () => {
+      try {
+        const fetchedQuestions = await fetchQuestions();
+        // Fallback to hardcoded questions if API returns empty
+        setAllQuestions(fetchedQuestions.length > 0 ? fetchedQuestions : fallbackQuestions);
+      } catch (error) {
+        console.error('Failed to load questions:', error);
+        setAllQuestions(fallbackQuestions);
+      }
+    };
+    loadQuestions();
+  }, []);
+
+  // Apply filters
+  useEffect(() => {
+    let filtered = [...allQuestions];
     
     if (selectedLevel !== 'all') {
       filtered = filtered.filter(q => q.level === selectedLevel);
@@ -21,7 +40,23 @@ export default function QuestionBankPage() {
     }
     
     setFilteredQuestions(filtered);
-  }, [selectedLevel, selectedType]);
+  }, [selectedLevel, selectedType, allQuestions]);
+
+  // Handle adding new question
+  const handleAddQuestion = async (values: any) => {
+    try {
+      const newQuestion = await addQuestion(values);
+      setAllQuestions([newQuestion, ...allQuestions]);
+      setIsModalOpen(false);
+      form.resetFields();
+      message.success('Question added successfully!');
+    } catch (error) {
+      message.error('Failed to add question');
+    }
+  };
+
+  const showAddModal = () => setIsModalOpen(true);
+  const handleCancel = () => setIsModalOpen(false);
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -89,6 +124,9 @@ export default function QuestionBankPage() {
                 { value: 'system design', label: 'System Design' }
               ]}
             />
+            <Button type="primary" icon={<Plus />} onClick={showAddModal}>
+              Add Question
+            </Button>
           </div>
 
           {/* Questions Grid */}
@@ -115,6 +153,89 @@ export default function QuestionBankPage() {
           )}
         </div>
       </main>
+
+      {/* Add Question Modal */}
+      <Modal
+        title="Add New Question"
+        open={isModalOpen}
+        onCancel={handleCancel}
+        footer={null}
+        width={700}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleAddQuestion}
+          initialValues={{
+            level: 'easy',
+            type: 'behavior'
+          }}
+        >
+          <Form.Item
+            name="question"
+            label="Question"
+            rules={[{ required: true, message: 'Please enter the question' }]}
+          >
+            <Input.TextArea rows={2} placeholder="Enter the interview question" />
+          </Form.Item>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Form.Item
+              name="level"
+              label="Level"
+              rules={[{ required: true, message: 'Please select level' }]}
+            >
+              <Select>
+                <Select.Option value="easy">Easy</Select.Option>
+                <Select.Option value="medium">Medium</Select.Option>
+                <Select.Option value="hard">Hard</Select.Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              name="type"
+              label="Type"
+              rules={[{ required: true, message: 'Please select type' }]}
+            >
+              <Select>
+                <Select.Option value="behavior">Behavior</Select.Option>
+                <Select.Option value="technical">Technical</Select.Option>
+                <Select.Option value="product">Product</Select.Option>
+                <Select.Option value="system design">System Design</Select.Option>
+              </Select>
+            </Form.Item>
+          </div>
+
+          <Form.Item name="industry" label="Industry">
+            <Input placeholder="e.g., software, product" />
+          </Form.Item>
+
+          <Form.Item
+            name="explanation"
+            label="Explanation"
+            rules={[{ required: true, message: 'Please enter explanation' }]}
+          >
+            <Input.TextArea rows={3} placeholder="Explain what this question assesses" />
+          </Form.Item>
+
+          <Form.Item
+            name="examples"
+            label="Example Answers"
+            rules={[{ required: true, message: 'Please enter example answers' }]}
+            getValueProps={(value) => ({ value: Array.isArray(value) ? value : [] })}
+            valuePropName="value"
+          >
+            <Select mode="tags" placeholder="Enter example answers (press Enter to add)" />
+          </Form.Item>
+
+          <div className="flex gap-2 justify-end">
+            <Button onClick={handleCancel}>Cancel</Button>
+            <Button type="primary" htmlType="submit">
+              Add Question
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </div>
   );
 }
