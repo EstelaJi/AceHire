@@ -63,6 +63,44 @@ redis.on('error', err => console.error('Redis error', err));
 
 const pool = new Pool({ connectionString: config.postgresUrl });
 
+interface InterviewQuestion {
+  id?: string;
+  question: string;
+  level: 'easy' | 'medium' | 'hard';
+  type: 'behavior' | 'technical' | 'product' | 'system design';
+  industry?: string;
+  explanation: string;
+  examples: string[];
+}
+
+// Initialize database tables
+async function initDB() {
+  const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS interview_questions (
+      id VARCHAR(255) PRIMARY KEY,
+      question TEXT NOT NULL,
+      level VARCHAR(50) NOT NULL CHECK (level IN ('easy', 'medium', 'hard')),
+      type VARCHAR(50) NOT NULL CHECK (type IN ('behavior', 'technical', 'product', 'system design')),
+      industry VARCHAR(255),
+      explanation TEXT NOT NULL,
+      examples JSONB NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_questions_level ON interview_questions(level);
+    CREATE INDEX IF NOT EXISTS idx_questions_type ON interview_questions(type);
+    CREATE INDEX IF NOT EXISTS idx_questions_industry ON interview_questions(industry);
+  `;
+  
+  try {
+    await pool.query(createTableQuery);
+    console.log('Database tables initialized successfully');
+  } catch (err) {
+    console.error('Failed to initialize database tables', err);
+  }
+}
+
 app.get('/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
@@ -90,6 +128,55 @@ async function sendInitialQuestion(sessionId: string, meta: InterviewMeta) {
     io.to(sessionId).emit('ai:message', { text: fallback });
   }
 }
+
+// GET /api/questions - Get all questions
+app.get('/api/questions', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM interview_questions ORDER BY created_at DESC'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Failed to fetch questions', err);
+    res.status(500).json({ error: 'Failed to fetch questions' });
+  }
+});
+
+// POST /api/questions - Add new question
+app.post('/api/questions', async (req, res) => {
+  try {
+    const { question, level, type, industry, explanation, examples } = req.body;
+    
+    // Validate required fields
+    if (!question || !level || !type || !explanation || !examples) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Validate level
+    const validLevels: string[] = ['easy', 'medium', 'hard'];
+    if (!validLevels.includes(level)) {
+      return res.status(400).json({ error: 'Invalid level. Must be easy, medium, or hard' });
+    }
+    
+    // Validate type
+    const validTypes: string[] = ['behavior', 'technical', 'product', 'system design'];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ error: 'Invalid type. Must be behavior, technical, product, or system design' });
+    }
+    
+    const id = uuid();
+    
+    const result = await pool.query(
+      'INSERT INTO interview_questions (id, question, level, type, industry, explanation, examples) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [id, question, level, type, industry, explanation, JSON.stringify(examples)]
+    );
+    
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Failed to create question', err);
+    res.status(500).json({ error: 'Failed to create question' });
+  }
+});
 
 io.on('connection', socket => {
   const sessionId = uuid();
@@ -290,6 +377,7 @@ io.on('connection', socket => {
 
 async function start() {
   await redis.connect();
+  await initDB();
   server.listen(config.port, () => {
     console.log(`API server listening on http://localhost:${config.port}`);
   });
