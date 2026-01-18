@@ -63,12 +63,95 @@ redis.on('error', err => console.error('Redis error', err));
 
 const pool = new Pool({ connectionString: config.postgresUrl });
 
+async function initDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS questions (
+        id SERIAL PRIMARY KEY,
+        question TEXT NOT NULL,
+        level VARCHAR(20) NOT NULL CHECK (level IN ('easy', 'medium', 'hard')),
+        type VARCHAR(50) NOT NULL CHECK (type IN ('behavior', 'technical', 'product', 'system design')),
+        industry VARCHAR(100),
+        explanation TEXT NOT NULL,
+        examples TEXT[] NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Database table initialized');
+  } catch (err) {
+    console.error('Failed to initialize database:', err);
+  }
+}
+
 app.get('/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
     res.json({ status: 'ok' });
   } catch (err) {
     res.status(500).json({ status: 'error', detail: (err as Error).message });
+  }
+});
+
+app.get('/api/questions', async (req, res) => {
+  try {
+    const { level, type, industry } = req.query;
+    let query = 'SELECT * FROM questions';
+    const params: any[] = [];
+    const conditions: string[] = [];
+
+    if (level) {
+      conditions.push(`level = $${params.length + 1}`);
+      params.push(level);
+    }
+    if (type) {
+      conditions.push(`type = $${params.length + 1}`);
+      params.push(type);
+    }
+    if (industry) {
+      conditions.push(`industry = $${params.length + 1}`);
+      params.push(industry);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Failed to fetch questions:', err);
+    res.status(500).json({ error: 'Failed to fetch questions' });
+  }
+});
+
+app.post('/api/questions', async (req, res) => {
+  try {
+    const { question, level, type, industry, explanation, examples } = req.body;
+
+    if (!question || !level || !type || !explanation || !examples) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (!['easy', 'medium', 'hard'].includes(level)) {
+      return res.status(400).json({ error: 'Invalid level' });
+    }
+
+    if (!['behavior', 'technical', 'product', 'system design'].includes(type)) {
+      return res.status(400).json({ error: 'Invalid type' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO questions (question, level, type, industry, explanation, examples)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [question, level, type, industry, explanation, examples]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Failed to create question:', err);
+    res.status(500).json({ error: 'Failed to create question' });
   }
 });
 
@@ -290,6 +373,7 @@ io.on('connection', socket => {
 
 async function start() {
   await redis.connect();
+  await initDatabase();
   server.listen(config.port, () => {
     console.log(`API server listening on http://localhost:${config.port}`);
   });
