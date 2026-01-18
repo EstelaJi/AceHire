@@ -1,23 +1,46 @@
 import { Link } from "react-router-dom";
-import { Button, Select, Card, Tag } from 'antd';
+import { Button, Select, Card, Tag, Spin } from 'antd';
 import { Sparkles, MessageSquare, FileText, TrendingUp, Filter } from "lucide-react";
 import { useState, useEffect } from 'react';
-import { questions, Question } from './questionsData';
+
+export interface Question {
+  id: string;
+  question: string;
+  level: 'easy' | 'medium' | 'hard';
+  type: 'behavior' | 'technical' | 'product' | 'system design';
+  industry?: string;
+  explanation: string;
+  examples: string[];
+}
 
 export default function HomePage() {
-  const [randomQuestions, setRandomQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [filteredQuestions, setFilteredQuestions] = useState<Question[]>([]);
 
   useEffect(() => {
-    // Get 6 random questions initially
-    const shuffled = [...questions].sort(() => 0.5 - Math.random());
-    setRandomQuestions(shuffled.slice(0, 6));
-    setFilteredQuestions(shuffled.slice(0, 6));
+    const fetchQuestions = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/questions');
+        const data = await response.json();
+        setQuestions(data);
+        
+        const shuffled = [...data].sort(() => 0.5 - Math.random());
+        setFilteredQuestions(shuffled.slice(0, 6));
+      } catch (error) {
+        console.error('Failed to fetch questions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchQuestions();
   }, []);
 
   useEffect(() => {
+    if (questions.length === 0) return;
+    
     let filtered = [...questions];
     
     if (selectedLevel !== 'all') {
@@ -31,7 +54,7 @@ export default function HomePage() {
     // Get up to 6 random questions from filtered results
     const shuffled = [...filtered].sort(() => 0.5 - Math.random());
     setFilteredQuestions(shuffled.slice(0, 6));
-  }, [selectedLevel, selectedType]);
+  }, [selectedLevel, selectedType, questions]);
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -239,17 +262,27 @@ export default function HomePage() {
 
             {/* Questions Grid */}
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredQuestions.map((question) => (
-                <Card key={question.id} className="h-full">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex gap-2 flex-wrap">
-                      <Tag color={getLevelColor(question.level)}>{question.level}</Tag>
-                      <Tag color={getTypeColor(question.type)}>{question.type}</Tag>
+              {loading ? (
+                <div className="col-span-full flex justify-center py-12">
+                  <Spin size="large" />
+                </div>
+              ) : filteredQuestions.length > 0 ? (
+                filteredQuestions.map((question) => (
+                  <Card key={question.id} className="h-full">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex gap-2 flex-wrap">
+                        <Tag color={getLevelColor(question.level)}>{question.level}</Tag>
+                        <Tag color={getTypeColor(question.type)}>{question.type}</Tag>
+                      </div>
+                      <p className="text-foreground leading-relaxed">{question.question}</p>
                     </div>
-                    <p className="text-foreground leading-relaxed">{question.question}</p>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <p className="text-muted-foreground">No questions found</p>
+                </div>
+              )}
             </div>
           </div>
         </section>
