@@ -1,13 +1,42 @@
 import { useParams, Link } from 'react-router-dom';
-import { Card, Tag, Button, Typography, Divider } from 'antd';
+import { Card, Tag, Button, Typography, Divider, message, Spin } from 'antd';
 import { ArrowLeft, Lightbulb, MessageSquare } from 'lucide-react';
-import { questions, Question } from '../home/questionsData';
+import { Question, fetchQuestionById } from '../services/questionService';
+import { useState, useEffect } from 'react';
 
 const { Title, Paragraph } = Typography;
 
 export default function QuestionDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const question = questions.find(q => q.id === id);
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    const loadQuestion = async () => {
+      if (!id) return;
+      
+      try {
+        setLoading(true);
+        const questionData = await fetchQuestionById(parseInt(id));
+        setQuestion(questionData);
+      } catch (error) {
+        console.error('Failed to load question:', error);
+        message.error('Failed to load question');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadQuestion();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   if (!question) {
     return (
@@ -100,7 +129,7 @@ export default function QuestionDetailPage() {
             </div>
             
             <div className="space-y-6">
-              {question.examples.map((example, index) => (
+              {question.examples.map((example: string, index: number) => (
                 <div key={index} className="bg-muted/50 rounded-lg p-6 border border-border">
                   <div className="flex items-center gap-2 mb-3">
                     <Tag color="primary" className="text-sm font-medium">
