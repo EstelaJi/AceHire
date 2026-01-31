@@ -1,20 +1,66 @@
 import { useParams, Link } from 'react-router-dom';
-import { Card, Tag, Button, Typography, Divider } from 'antd';
+import { useState, useEffect } from 'react';
+import { Card, Tag, Button, Typography, Divider, Spin, Alert } from 'antd';
 import { ArrowLeft, Lightbulb, MessageSquare } from 'lucide-react';
-import { questions, Question } from '../home/questionsData';
 
 const { Title, Paragraph } = Typography;
 
+interface Question {
+  id: string;
+  question: string;
+  level: 'easy' | 'medium' | 'hard';
+  type: 'behavior' | 'technical' | 'product' | 'system design';
+  industry?: string;
+  explanation: string;
+  examples: string[];
+}
+
 export default function QuestionDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const question = questions.find(q => q.id === id);
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!question) {
+  useEffect(() => {
+    const fetchQuestion = async () => {
+      if (!id) return;
+      
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(`/api/questions/${id}`);
+        if (!response.ok) {
+          throw new Error('Question not found');
+        }
+        
+        const data = await response.json();
+        setQuestion(data);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuestion();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Spin size="large" tip="Loading question..." />
+      </div>
+    );
+  }
+
+  if (error || !question) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Title level={2}>Question not found</Title>
-          <Link to="/question-bank" className="text-primary">
+          {error && <Alert message={error} type="error" className="mt-4" />}
+          <Link to="/question-bank" className="text-primary mt-4 block">
             Back to Question Bank
           </Link>
         </div>
