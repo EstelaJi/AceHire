@@ -8,6 +8,7 @@ import axios from 'axios';
 import { v4 as uuid } from 'uuid';
 import FormData from 'form-data';
 import { config } from './config';
+import questionRoutes from './routes/questions';
 
 type Role = 'ai' | 'candidate';
 
@@ -52,6 +53,9 @@ interface AiQuestionResponse {
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// API routes
+app.use('/api/questions', questionRoutes);
 
 const server = http.createServer(app);
 const io = new SocketServer(server, {
