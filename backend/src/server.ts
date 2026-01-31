@@ -49,6 +49,26 @@ interface AiQuestionResponse {
   question?: string;
 }
 
+interface AlgorithmQuestion {
+  title?: string;
+  description?: string;
+  difficulty?: string;
+  topic?: string;
+  examples?: Array<{ input: string; output: string }>;
+  hints?: string[];
+  test_cases?: Array<{ input: string; expected_output: string }>;
+}
+
+interface CodeEvaluationResult {
+  score?: number;
+  correctness?: number;
+  time_complexity?: string;
+  space_complexity?: string;
+  code_quality?: number;
+  feedback?: string;
+  is_correct?: boolean;
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -69,6 +89,36 @@ app.get('/health', async (_req, res) => {
     res.json({ status: 'ok' });
   } catch (err) {
     res.status(500).json({ status: 'error', detail: (err as Error).message });
+  }
+});
+
+app.post('/api/algorithm/question', async (req, res) => {
+  try {
+    const { difficulty = 'easy', topic } = req.body;
+    const { data } = await axios.post<AlgorithmQuestion>(
+      `${config.aiServiceUrl}/algorithm/question`,
+      { difficulty, topic },
+      { timeout: 30000 }
+    );
+    res.json(data);
+  } catch (err) {
+    console.error('Failed to generate algorithm question:', (err as Error).message);
+    res.status(500).json({ error: 'Failed to generate algorithm question' });
+  }
+});
+
+app.post('/api/algorithm/evaluate', async (req, res) => {
+  try {
+    const { code, language, question, test_cases } = req.body;
+    const { data } = await axios.post<CodeEvaluationResult>(
+      `${config.aiServiceUrl}/algorithm/evaluate`,
+      { code, language, question, test_cases },
+      { timeout: 60000 }
+    );
+    res.json(data);
+  } catch (err) {
+    console.error('Failed to evaluate code:', (err as Error).message);
+    res.status(500).json({ error: 'Failed to evaluate code' });
   }
 });
 

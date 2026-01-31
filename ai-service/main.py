@@ -32,6 +32,16 @@ class EngineNextRequest(BaseModel):
   session_id: str
   text: str | None = None
 
+class AlgorithmQuestionRequest(BaseModel):
+  difficulty: str = "easy"
+  topic: str | None = None
+
+class CodeEvaluationRequest(BaseModel):
+  code: str
+  language: str = "javascript"
+  question: str
+  test_cases: list | None = None
+
 
 app = FastAPI(title="AI Interview Service", version="0.1.0")
 
@@ -183,4 +193,159 @@ async def engine_next(payload: EngineNextRequest):
   # Reuse existing logic: if no question, generate one; here directly call evaluate process
   result = await engine.conduct_interview({"text": payload.text or ""})
   return result
+
+@app.post("/algorithm/question")
+async def generate_algorithm_question(payload: AlgorithmQuestionRequest):
+  """根据难度生成算法题目"""
+  try:
+    from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.messages import SystemMessage, HumanMessage
+    import json
+
+    api_key = os.getenv("DEEPSEEK_API_KEY", "")
+    if not api_key:
+      raise HTTPException(status_code=500, detail="API key not configured")
+
+    llm = ChatOpenAI(
+      model_name="deepseek-chat",
+      temperature=0.7,
+      max_tokens=800,
+      base_url="https://api.deepseek.com/v1",
+      api_key=api_key
+    )
+
+    difficulty_map = {
+      "easy": "Easy",
+      "medium": "Medium",
+      "hard": "Hard"
+    }
+
+    topic_map = {
+      "array": "Array",
+      "string": "String",
+      "linkedlist": "Linked List",
+      "tree": "Tree",
+      "dp": "Dynamic Programming",
+      "graph": "Graph",
+      "sorting": "Sorting",
+      "search": "Search"
+    }
+
+    difficulty_en = difficulty_map.get(payload.difficulty, "Easy")
+    topic_en = topic_map.get(payload.topic, "") if payload.topic else ""
+
+    prompt = ChatPromptTemplate.from_messages([
+      SystemMessage(content=f"""You are a professional algorithm interviewer. Please generate an algorithm question with {difficulty_en} difficulty.
+
+Requirements:
+1. Clear and concise problem description
+2. Include example input and output
+3. Include hints for solving the problem
+4. Provide test cases (at least 3)
+5. Return in JSON format with these fields:
+   - title: question title
+   - description: problem description
+   - difficulty: difficulty level (easy/medium/hard)
+   - topic: question topic
+   - examples: array of examples, each with input and output
+   - hints: array of hints
+   - test_cases: array of test cases, each with input and expected_output
+
+Respond ONLY with valid JSON."""),
+      HumanMessage(content=f"Please generate an {difficulty_en} difficulty {topic_en} algorithm question. Return only valid JSON.")
+    ])
+
+    chain = prompt | llm
+    response = chain.invoke({})
+    response_text = response.content if hasattr(response, "content") else str(response)
+
+    try:
+        result = json.loads(response_text)
+        return result
+    except json.JSONDecodeError:
+        import re
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+            return result
+        raise HTTPException(status_code=500, detail="Failed to parse question")
+
+  except Exception as e:
+    print(f"Error generating algorithm question: {e}")
+    raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/algorithm/evaluate")
+async def evaluate_code(payload: CodeEvaluationRequest):
+  """评估用户提交的代码"""
+  try:
+    from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.messages import SystemMessage, HumanMessage
+    import json
+
+    api_key = os.getenv("DEEPSEEK_API_KEY", "")
+    if not api_key:
+      raise HTTPException(status_code=500, detail="API key not configured")
+
+    llm = ChatOpenAI(
+      model_name="deepseek-chat",
+      temperature=0.3,
+      max_tokens=1000,
+      base_url="https://api.deepseek.com/v1",
+      api_key=api_key
+    )
+
+    test_cases_str = ""
+    if payload.test_cases:
+        test_cases_str = "Test Cases:\n"
+        for i, tc in enumerate(payload.test_cases):
+            test_cases_str += f"{i+1}. Input: {tc.get('input')}, Expected Output: {tc.get('expected_output')}\n"
+
+    prompt = ChatPromptTemplate.from_messages([
+      SystemMessage(content=f"""You are a professional code reviewer. Please evaluate the following code:
+
+Question: {payload.question}
+Programming Language: {payload.language}
+
+{test_cases_str}
+
+Evaluate the code on these aspects:
+1. Correctness: Does the code correctly solve the problem?
+2. Time Complexity: Analyze the time complexity
+3. Space Complexity: Analyze the space complexity
+4. Code Quality: Readability, conciseness
+5. Edge Cases: Does it handle edge cases?
+
+Return in JSON format with these fields:
+- score: overall score (0-100)
+- correctness: correctness score (0-100)
+- time_complexity: time complexity analysis
+- space_complexity: space complexity analysis
+- code_quality: code quality score (0-100)
+- feedback: detailed feedback and suggestions
+- is_correct: boolean, whether the code is correct
+
+Respond ONLY with valid JSON."""),
+      HumanMessage(content=f"Please evaluate this code:\n\n{payload.code}")
+    ])
+
+    chain = prompt | llm
+    response = chain.invoke({})
+    response_text = response.content if hasattr(response, "content") else str(response)
+
+    try:
+        result = json.loads(response_text)
+        return result
+    except json.JSONDecodeError:
+        import re
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+            return result
+        raise HTTPException(status_code=500, detail="Failed to parse evaluation")
+
+  except Exception as e:
+    print(f"Error evaluating code: {e}")
+    raise HTTPException(status_code=500, detail=str(e))
 
