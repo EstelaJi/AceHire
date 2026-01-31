@@ -88,28 +88,28 @@ async def analyze(payload: AnalyzeRequest):
     
     # Build prompt
     prompt = ChatPromptTemplate.from_messages([
-      SystemMessage(content=f"""你是一位专业的AI面试官，正在面试一位{payload.level or '中级'}级别的{payload.industry or '全栈'}开发工程师。
+      SystemMessage(content=f"""You are a professional AI interviewer interviewing a {payload.level or 'mid-level'} {payload.industry or 'full-stack'} developer.
 
-你的任务：
-1. 对候选人的回答给出简短、专业的反馈
-2. 可以追问细节或提出下一个相关问题
-3. 保持友好但专业的语调
-4. 回复要简洁，控制在2-3句话内"""),
-      HumanMessage(content=f"候选人的回答：{payload.text}\n\n请给出你的回复（可以是反馈、追问或下一个问题）：")
+Your tasks:
+1. Provide brief, professional feedback on the candidate's answers
+2. You can ask for details or propose the next related question
+3. Maintain a friendly but professional tone
+4. Keep your responses concise, keep to 2-3 sentences"""),
+      HumanMessage(content=f"Candidate's answer: {payload.text}\n\nPlease provide your response (can be feedback, follow-up question, or next question):")
     ])
     
-    # 调用 LLM
+    # Call LLM
     chain = prompt | llm
     response = chain.invoke({})
     
-    # 提取回复文本
+    # Extract response text
     reply_text = response.content if hasattr(response, 'content') else str(response)
     
     return {"reply": reply_text}
     
   except Exception as e:
     print(f"Error in /analyze: {e}")
-    return {"reply": f"抱歉，处理您的回答时出现错误。请重试。错误信息：{str(e)}"}
+    return {"reply": f"Sorry, an error occurred while processing your answer. Please try again. Error: {str(e)}"}
 
 
 @app.post("/transcribe")
@@ -253,40 +253,40 @@ async def code_evaluate(payload: CodeEvaluateRequest):
     
     constraints_str = ", ".join(problem_info.get("constraints", []))
     
-    system_message = f"""你是一位专业的代码评审专家，负责评估候选人提交的代码解决方案。
+    system_message = f"""You are a professional code reviewer responsible for evaluating candidates' submitted code solutions.
 
-你的任务：
-1. 分析代码的逻辑和实现方式
-2. 检查代码是否能正确处理所有测试用例
-3. 评估代码的时间复杂度和空间复杂度
-4. 提供有针对性的反馈和建议
+Your tasks:
+1. Analyze the logic and implementation of the code
+2. Check if the code correctly handles all test cases
+3. Evaluate the time complexity and space complexity of the code
+4. Provide targeted feedback and suggestions
 
-请基于以下信息进行评估：
-- 问题标题：{problem_info.get('title', 'Unknown')}
-- 问题描述：{problem_info.get('description', 'No description')}
-- 约束条件：{constraints_str}
-- 编程语言：{payload.language}
+Please evaluate based on the following information:
+- Problem Title: {problem_info.get('title', 'Unknown')}
+- Problem Description: {problem_info.get('description', 'No description')}
+- Constraints: {constraints_str}
+- Programming Language: {payload.language}
 
-测试用例：
+Test Cases:
 {test_cases_str}
 
-请提供以下格式的评估结果：
-1. 是否通过所有测试用例 (passed: true/false)
-2. 总体评分 (0-100分)
-3. 详细反馈 (feedback)
-4. 每个测试用例的具体结果 (testResults)"""
+Please provide evaluation results in the following format:
+1. Whether all test cases passed (passed: true/false)
+2. Overall score (0-100)
+3. Detailed feedback
+4. Specific results for each test case (testResults)"""
     
-    human_message = f"""请评估以下代码解决方案：
+    human_message = f"""Please evaluate the following code solution:
 
 ```{payload.language}
 {payload.code}
 ```
 
-请以JSON格式返回评估结果，包含以下字段：
-- passed: boolean (是否通过所有测试)
-- score: number (0-100的评分)
-- feedback: string (详细反馈)
-- testResults: array (每个测试用例的结果，包含passed, input, expected, actual字段)"""
+Please return the evaluation results in JSON format, including the following fields:
+- passed: boolean (whether all tests passed)
+- score: number (0-100 score)
+- feedback: string (detailed feedback)
+- testResults: array (results for each test case, including passed, input, expected, actual fields)"""
     
     prompt = ChatPromptTemplate.from_messages([
       SystemMessage(content=system_message),
@@ -320,13 +320,13 @@ async def code_evaluate(payload: CodeEvaluateRequest):
               "passed": evaluation_result.get("passed", False),
               "input": test_case["input"],
               "expected": test_case["expectedOutput"],
-              "actual": "模拟输出"  # 在实际实现中，这里应该是代码的实际输出
+              "actual": "Mock output"  # In actual implementation, this should be the actual output of the code
             })
           evaluation_result["testResults"] = test_results
         
         return evaluation_result
       else:
-        raise ValueError("无法从响应中提取JSON")
+        raise ValueError("Unable to extract JSON from response")
     except Exception as e:
       print(f"Error parsing AI response: {e}")
       # 如果解析失败，返回默认评估
@@ -336,13 +336,13 @@ async def code_evaluate(payload: CodeEvaluateRequest):
           "passed": False,
           "input": test_case["input"],
           "expected": test_case["expectedOutput"],
-          "actual": "解析错误"
+          "actual": "Parse error"
         })
       
       return {
         "passed": False,
         "score": 0,
-        "feedback": f"代码评估过程中出现错误。AI反馈：{response_text}",
+        "feedback": f"Error occurred during code evaluation. AI feedback: {response_text}",
         "testResults": test_results
       }
     
@@ -358,13 +358,13 @@ async def code_evaluate(payload: CodeEvaluateRequest):
         "passed": False,
         "input": test_case["input"],
         "expected": test_case["expectedOutput"],
-        "actual": "评估错误"
+        "actual": "Evaluation error"
       })
     
     return {
       "passed": False,
       "score": 0,
-      "feedback": f"评估过程中出现错误：{str(e)}",
+      "feedback": f"Error occurred during evaluation: {str(e)}",
       "testResults": test_results
     }
 

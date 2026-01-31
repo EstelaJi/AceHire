@@ -123,13 +123,13 @@ async def code_evaluate(payload: CodeEvaluateRequest):
         "passed": False,
         "input": test_case["input"],
         "expected": test_case["expectedOutput"],
-        "actual": "评估错误"
+        "actual": "Parse error"
       })
     
     return {
       "passed": False,
       "score": 0,
-      "feedback": f"评估过程中出现错误：{str(e)}",
+      "feedback": f"Error occurred during evaluation: {str(e)}",
       "testResults": test_results
     }
 
