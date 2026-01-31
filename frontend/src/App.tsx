@@ -6,6 +6,7 @@ import InterviewPage from './interview';
 import ReportPage from './report';
 import QuestionBankPage from './question-bank';
 import QuestionDetailPage from './question-bank/QuestionDetail';
+import CodingPage from './coding';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
         <Route path="/report" element={<ReportPage />} />
         <Route path="/question-bank" element={<QuestionBankPage />} />
         <Route path="/question-bank/:id" element={<QuestionDetailPage />} />
+        <Route path="/coding" element={<CodingPage />} />
       </Routes>
     </ConfigProvider>
   );

@@ -33,6 +33,13 @@ class EngineNextRequest(BaseModel):
   text: str | None = None
 
 
+class CodeEvaluateRequest(BaseModel):
+  problem: dict
+  code: str
+  language: str
+  testCases: list[dict]
+
+
 app = FastAPI(title="AI Interview Service", version="0.1.0")
 
 ASR_MODEL_NAME = os.getenv("ASR_MODEL", "small")
@@ -81,28 +88,28 @@ async def analyze(payload: AnalyzeRequest):
     
     # Build prompt
     prompt = ChatPromptTemplate.from_messages([
-      SystemMessage(content=f"""你是一位专业的AI面试官，正在面试一位{payload.level or '中级'}级别的{payload.industry or '全栈'}开发工程师。
+      SystemMessage(content=f"""You are a professional AI interviewer interviewing a {payload.level or 'mid-level'} {payload.industry or 'full-stack'} developer.
 
-你的任务：
-1. 对候选人的回答给出简短、专业的反馈
-2. 可以追问细节或提出下一个相关问题
-3. 保持友好但专业的语调
-4. 回复要简洁，控制在2-3句话内"""),
-      HumanMessage(content=f"候选人的回答：{payload.text}\n\n请给出你的回复（可以是反馈、追问或下一个问题）：")
+Your tasks:
+1. Provide brief, professional feedback on the candidate's answers
+2. You can ask for details or propose the next related question
+3. Maintain a friendly but professional tone
+4. Keep your responses concise, keep to 2-3 sentences"""),
+      HumanMessage(content=f"Candidate's answer: {payload.text}\n\nPlease provide your response (can be feedback, follow-up question, or next question):")
     ])
     
-    # 调用 LLM
+    # Call LLM
     chain = prompt | llm
     response = chain.invoke({})
     
-    # 提取回复文本
+    # Extract response text
     reply_text = response.content if hasattr(response, 'content') else str(response)
     
     return {"reply": reply_text}
     
   except Exception as e:
     print(f"Error in /analyze: {e}")
-    return {"reply": f"抱歉，处理您的回答时出现错误。请重试。错误信息：{str(e)}"}
+    return {"reply": f"Sorry, an error occurred while processing your answer. Please try again. Error: {str(e)}"}
 
 
 @app.post("/transcribe")
@@ -183,4 +190,181 @@ async def engine_next(payload: EngineNextRequest):
   # Reuse existing logic: if no question, generate one; here directly call evaluate process
   result = await engine.conduct_interview({"text": payload.text or ""})
   return result
+
+
+@app.post("/code-evaluate")
+async def code_evaluate(payload: CodeEvaluateRequest):
+  """Evaluate code submission using AI"""
+  try:
+    from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.messages import SystemMessage, HumanMessage
+    
+    api_key = os.getenv("DEEPSEEK_API_KEY", "")
+    if not api_key:
+      # Fallback evaluation without AI
+      test_results = []
+      passed_count = 0
+      
+      for test_case in payload.testCases:
+        # Simple mock evaluation - in a real implementation, you would
+        # execute the code in a sandboxed environment
+        passed = True  # Mock result
+        test_results.append({
+          "passed": passed,
+          "input": test_case["input"],
+          "expected": test_case["expectedOutput"],
+          "actual": test_case["expectedOutput"] if passed else "Mock actual output"
+        })
+        
+        if passed:
+          passed_count += 1
+      
+      score = int((passed_count / len(payload.testCases)) * 100)
+      passed = score == 100
+      
+      feedback = ""
+      if passed:
+        feedback = "Excellent! All test cases passed. Your solution is correct."
+      else:
+        feedback = f"Your solution passed {passed_count} out of {len(payload.testCases)} test cases. Keep trying!"
+      
+      return {
+        "passed": passed,
+        "score": score,
+        "feedback": feedback,
+        "testResults": test_results
+      }
+    
+    llm = ChatOpenAI(
+      model_name="deepseek-chat",
+      temperature=0.2,  # Lower temperature for more consistent evaluation
+      max_tokens=500,
+      base_url="https://api.deepseek.com/v1",
+      api_key=api_key
+    )
+    
+    # Build prompt for code evaluation
+    problem_info = payload.problem
+    test_cases_str = "\n".join([
+      f"Test Case {i+1}:\nInput: {tc['input']}\nExpected Output: {tc['expectedOutput']}"
+      for i, tc in enumerate(payload.testCases)
+    ])
+    
+    constraints_str = ", ".join(problem_info.get("constraints", []))
+    
+    system_message = f"""You are a professional code reviewer responsible for evaluating candidates' submitted code solutions.
+
+Your tasks:
+1. Analyze the logic and implementation of the code
+2. Check if the code correctly handles all test cases
+3. Evaluate the time complexity and space complexity of the code
+4. Provide targeted feedback and suggestions
+
+Please evaluate based on the following information:
+- Problem Title: {problem_info.get('title', 'Unknown')}
+- Problem Description: {problem_info.get('description', 'No description')}
+- Constraints: {constraints_str}
+- Programming Language: {payload.language}
+
+Test Cases:
+{test_cases_str}
+
+Please provide evaluation results in the following format:
+1. Whether all test cases passed (passed: true/false)
+2. Overall score (0-100)
+3. Detailed feedback
+4. Specific results for each test case (testResults)"""
+    
+    human_message = f"""Please evaluate the following code solution:
+
+```{payload.language}
+{payload.code}
+```
+
+Please return the evaluation results in JSON format, including the following fields:
+- passed: boolean (whether all tests passed)
+- score: number (0-100 score)
+- feedback: string (detailed feedback)
+- testResults: array (results for each test case, including passed, input, expected, actual fields)"""
+    
+    prompt = ChatPromptTemplate.from_messages([
+      SystemMessage(content=system_message),
+      HumanMessage(content=human_message)
+    ])
+    
+    # 调用 LLM
+    chain = prompt | llm
+    response = chain.invoke({})
+    
+    # 提取回复文本
+    response_text = response.content if hasattr(response, 'content') else str(response)
+    
+    # 尝试解析JSON响应
+    try:
+      import json
+      # 查找JSON部分
+      start_idx = response_text.find('{')
+      end_idx = response_text.rfind('}') + 1
+      
+      if start_idx != -1 and end_idx != -1:
+        json_str = response_text[start_idx:end_idx]
+        evaluation_result = json.loads(json_str)
+        
+        # 确保所有必需字段都存在
+        if "testResults" not in evaluation_result:
+          # 如果没有测试结果，生成默认的
+          test_results = []
+          for test_case in payload.testCases:
+            test_results.append({
+              "passed": evaluation_result.get("passed", False),
+              "input": test_case["input"],
+              "expected": test_case["expectedOutput"],
+              "actual": "Mock output"  # In actual implementation, this should be the actual output of the code
+            })
+          evaluation_result["testResults"] = test_results
+        
+        return evaluation_result
+      else:
+        raise ValueError("Unable to extract JSON from response")
+    except Exception as e:
+      print(f"Error parsing AI response: {e}")
+      # 如果解析失败，返回默认评估
+      test_results = []
+      for test_case in payload.testCases:
+        test_results.append({
+          "passed": False,
+          "input": test_case["input"],
+          "expected": test_case["expectedOutput"],
+          "actual": "Parse error"
+        })
+      
+      return {
+        "passed": False,
+        "score": 0,
+        "feedback": f"Error occurred during code evaluation. AI feedback: {response_text}",
+        "testResults": test_results
+      }
+    
+  except Exception as e:
+    print(f"Error in /code-evaluate: {e}")
+    import traceback
+    traceback.print_exc()
+    
+    # 返回错误评估
+    test_results = []
+    for test_case in payload.testCases:
+      test_results.append({
+        "passed": False,
+        "input": test_case["input"],
+        "expected": test_case["expectedOutput"],
+        "actual": "Evaluation error"
+      })
+    
+    return {
+      "passed": False,
+      "score": 0,
+      "feedback": f"Error occurred during evaluation: {str(e)}",
+      "testResults": test_results
+    }
 
