@@ -53,7 +53,7 @@ export default function CodingPage() {
       setQuestion(data);
       setCode('');
     } catch (err) {
-      setError('生成题目失败，请重试');
+      setError('Failed to generate question, please try again');
       console.error(err);
     } finally {
       setLoading(false);
@@ -62,11 +62,11 @@ export default function CodingPage() {
 
   const submitCode = async () => {
     if (!code.trim()) {
-      setError('请先编写代码');
+      setError('Please write your code first');
       return;
     }
     if (!question) {
-      setError('请先生成题目');
+      setError('Please generate a question first');
       return;
     }
     setEvaluating(true);
@@ -86,7 +86,7 @@ export default function CodingPage() {
       const data = await response.json();
       setEvaluationResult(data);
     } catch (err) {
-      setError('代码评估失败，请重试');
+      setError('Failed to evaluate code, please try again');
       console.error(err);
     } finally {
       setEvaluating(false);
@@ -109,7 +109,7 @@ export default function CodingPage() {
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="size-5" />
-              <span>返回首页</span>
+              <span>Back to Home</span>
             </Link>
           </div>
           <div className="flex items-center gap-2">
@@ -125,33 +125,33 @@ export default function CodingPage() {
         <div className="grid lg:grid-cols-2 gap-8">
           <div className="space-y-6">
             <Card>
-              <Title level={4}>题目设置</Title>
+              <Title level={4}>Question Settings</Title>
               <Space.Compact style={{ width: '100%' }} className="gap-2">
                 <Select
                   value={difficulty}
                   onChange={setDifficulty}
                   style={{ width: 150 }}
                   options={[
-                    { value: 'easy', label: '简单' },
-                    { value: 'medium', label: '中等' },
-                    { value: 'hard', label: '困难' }
+                    { value: 'easy', label: 'Easy' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'hard', label: 'Hard' }
                   ]}
                 />
                 <Select
                   value={topic}
                   onChange={setTopic}
                   style={{ width: 180 }}
-                  placeholder="选择类型"
+                  placeholder="Select Topic"
                   allowClear
                   options={[
-                    { value: 'array', label: '数组' },
-                    { value: 'string', label: '字符串' },
-                    { value: 'linkedlist', label: '链表' },
-                    { value: 'tree', label: '树' },
-                    { value: 'dp', label: '动态规划' },
-                    { value: 'graph', label: '图' },
-                    { value: 'sorting', label: '排序' },
-                    { value: 'search', label: '搜索' }
+                    { value: 'array', label: 'Array' },
+                    { value: 'string', label: 'String' },
+                    { value: 'linkedlist', label: 'Linked List' },
+                    { value: 'tree', label: 'Tree' },
+                    { value: 'dp', label: 'Dynamic Programming' },
+                    { value: 'graph', label: 'Graph' },
+                    { value: 'sorting', label: 'Sorting' },
+                    { value: 'search', label: 'Search' }
                   ]}
                 />
                 <Select
@@ -171,7 +171,7 @@ export default function CodingPage() {
                   loading={loading}
                   icon={<RefreshCw className="size-4" />}
                 >
-                  生成题目
+                  Generate
                 </Button>
               </Space.Compact>
             </Card>
@@ -199,13 +199,13 @@ export default function CodingPage() {
                 {question.examples && question.examples.length > 0 && (
                   <>
                     <Divider />
-                    <Title level={5}>示例</Title>
+                    <Title level={5}>Examples</Title>
                     {question.examples.map((example, index) => (
                       <div key={index} className="bg-muted p-4 rounded-lg mb-2">
-                        <Text strong>输入: </Text>
+                        <Text strong>Input: </Text>
                         <code className="bg-background px-2 py-1 rounded">{example.input}</code>
                         <br />
-                        <Text strong>输出: </Text>
+                        <Text strong>Output: </Text>
                         <code className="bg-background px-2 py-1 rounded">{example.output}</code>
                       </div>
                     ))}
@@ -215,7 +215,7 @@ export default function CodingPage() {
                 {question.hints && question.hints.length > 0 && (
                   <>
                     <Divider />
-                    <Title level={5}>提示</Title>
+                    <Title level={5}>Hints</Title>
                     <ul className="list-disc list-inside space-y-1">
                       {question.hints.map((hint, index) => (
                         <li key={index} className="text-muted-foreground">{hint}</li>
@@ -229,11 +229,11 @@ export default function CodingPage() {
 
           <div className="space-y-6">
             <Card>
-              <Title level={4}>代码编辑器</Title>
+              <Title level={4}>Code Editor</Title>
               <textarea
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="在这里编写你的代码..."
+                placeholder="Write your code here..."
                 className="w-full h-80 p-4 font-mono text-sm bg-background border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary"
                 spellCheck={false}
               />
@@ -246,7 +246,7 @@ export default function CodingPage() {
                   disabled={!code.trim() || !question}
                   icon={<Play className="size-4" />}
                 >
-                  提交代码
+                  Submit Code
                 </Button>
               </div>
             </Card>
@@ -260,31 +260,31 @@ export default function CodingPage() {
                     <XCircle className="size-8 text-red-500" />
                   )}
                   <Title level={4}>
-                    评估结果 - {evaluationResult.score}分
+                    Evaluation Result - Score: {evaluationResult.score}
                   </Title>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="bg-muted p-3 rounded">
-                    <Text type="secondary">正确性</Text>
+                    <Text type="secondary">Correctness</Text>
                     <div className="text-2xl font-bold">{evaluationResult.correctness}</div>
                   </div>
                   <div className="bg-muted p-3 rounded">
-                    <Text type="secondary">代码质量</Text>
+                    <Text type="secondary">Code Quality</Text>
                     <div className="text-2xl font-bold">{evaluationResult.code_quality}</div>
                   </div>
                   <div className="bg-muted p-3 rounded">
-                    <Text type="secondary">时间复杂度</Text>
+                    <Text type="secondary">Time Complexity</Text>
                     <div className="text-lg font-semibold">{evaluationResult.time_complexity}</div>
                   </div>
                   <div className="bg-muted p-3 rounded">
-                    <Text type="secondary">空间复杂度</Text>
+                    <Text type="secondary">Space Complexity</Text>
                     <div className="text-lg font-semibold">{evaluationResult.space_complexity}</div>
                   </div>
                 </div>
 
                 <Divider />
-                <Title level={5}>反馈建议</Title>
+                <Title level={5}>Feedback</Title>
                 <Paragraph className="text-muted-foreground">
                   {evaluationResult.feedback}
                 </Paragraph>

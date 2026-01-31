@@ -216,41 +216,44 @@ async def generate_algorithm_question(payload: AlgorithmQuestionRequest):
     )
 
     difficulty_map = {
-      "easy": "简单",
-      "medium": "中等",
-      "hard": "困难"
+      "easy": "Easy",
+      "medium": "Medium",
+      "hard": "Hard"
     }
 
     topic_map = {
-      "array": "数组",
-      "string": "字符串",
-      "linkedlist": "链表",
-      "tree": "树",
-      "dp": "动态规划",
-      "graph": "图",
-      "sorting": "排序",
-      "search": "搜索"
+      "array": "Array",
+      "string": "String",
+      "linkedlist": "Linked List",
+      "tree": "Tree",
+      "dp": "Dynamic Programming",
+      "graph": "Graph",
+      "sorting": "Sorting",
+      "search": "Search"
     }
 
-    difficulty_cn = difficulty_map.get(payload.difficulty, "简单")
-    topic_cn = topic_map.get(payload.topic, "") if payload.topic else ""
+    difficulty_en = difficulty_map.get(payload.difficulty, "Easy")
+    topic_en = topic_map.get(payload.topic, "") if payload.topic else ""
 
     prompt = ChatPromptTemplate.from_messages([
-      SystemMessage(content=f"""你是一位专业的算法面试官。请生成一个{difficulty_cn}难度的算法题目。
-要求：
-1. 题目描述清晰简洁
-2. 包含示例输入输出
-3. 包含解题提示
-4. 提供测试用例（至少3个）
-5. 用JSON格式返回，包含以下字段：
-   - title: 题目标题
-   - description: 题目描述
-   - difficulty: 难度 (easy/medium/hard)
-   - topic: 题目类型
-   - examples: 示例数组，每个包含input和output
-   - hints: 提示数组
-   - test_cases: 测试用例数组，每个包含input和expected_output"""),
-      HumanMessage(content=f"请生成一个{difficulty_cn}难度的{topic_cn}算法题目，返回JSON格式。")
+      SystemMessage(content=f"""You are a professional algorithm interviewer. Please generate an algorithm question with {difficulty_en} difficulty.
+
+Requirements:
+1. Clear and concise problem description
+2. Include example input and output
+3. Include hints for solving the problem
+4. Provide test cases (at least 3)
+5. Return in JSON format with these fields:
+   - title: question title
+   - description: problem description
+   - difficulty: difficulty level (easy/medium/hard)
+   - topic: question topic
+   - examples: array of examples, each with input and output
+   - hints: array of hints
+   - test_cases: array of test cases, each with input and expected_output
+
+Respond ONLY with valid JSON."""),
+      HumanMessage(content=f"Please generate an {difficulty_en} difficulty {topic_en} algorithm question. Return only valid JSON.")
     ])
 
     chain = prompt | llm
@@ -295,34 +298,36 @@ async def evaluate_code(payload: CodeEvaluationRequest):
 
     test_cases_str = ""
     if payload.test_cases:
-        test_cases_str = "测试用例:\n"
+        test_cases_str = "Test Cases:\n"
         for i, tc in enumerate(payload.test_cases):
-            test_cases_str += f"{i+1}. 输入: {tc.get('input')}, 期望输出: {tc.get('expected_output')}\n"
+            test_cases_str += f"{i+1}. Input: {tc.get('input')}, Expected Output: {tc.get('expected_output')}\n"
 
     prompt = ChatPromptTemplate.from_messages([
-      SystemMessage(content=f"""你是一位专业的代码评审员。请评估以下代码：
+      SystemMessage(content=f"""You are a professional code reviewer. Please evaluate the following code:
 
-题目：{payload.question}
-编程语言：{payload.language}
+Question: {payload.question}
+Programming Language: {payload.language}
 
 {test_cases_str}
 
-请从以下方面评估代码：
-1. 正确性：代码是否正确解决问题
-2. 时间复杂度：分析时间复杂度
-3. 空间复杂度：分析空间复杂度
-4. 代码质量：可读性、简洁性
-5. 边界情况：是否处理了边界条件
+Evaluate the code on these aspects:
+1. Correctness: Does the code correctly solve the problem?
+2. Time Complexity: Analyze the time complexity
+3. Space Complexity: Analyze the space complexity
+4. Code Quality: Readability, conciseness
+5. Edge Cases: Does it handle edge cases?
 
-用JSON格式返回，包含以下字段：
-- score: 总分 (0-100)
-- correctness: 正确性得分 (0-100)
-- time_complexity: 时间复杂度分析
-- space_complexity: 空间复杂度分析
-- code_quality: 代码质量得分 (0-100)
-- feedback: 详细的反馈和建议
-- is_correct: 布尔值，代码是否正确"""),
-      HumanMessage(content=f"请评估以下代码：\n\n{payload.code}")
+Return in JSON format with these fields:
+- score: overall score (0-100)
+- correctness: correctness score (0-100)
+- time_complexity: time complexity analysis
+- space_complexity: space complexity analysis
+- code_quality: code quality score (0-100)
+- feedback: detailed feedback and suggestions
+- is_correct: boolean, whether the code is correct
+
+Respond ONLY with valid JSON."""),
+      HumanMessage(content=f"Please evaluate this code:\n\n{payload.code}")
     ])
 
     chain = prompt | llm
