@@ -8,6 +8,8 @@ import axios from 'axios';
 import { v4 as uuid } from 'uuid';
 import FormData from 'form-data';
 import { config } from './config';
+import { QuestionService } from './db/questionService';
+import { CreateQuestionRequest } from './db/types';
 
 type Role = 'ai' | 'candidate';
 
@@ -62,6 +64,7 @@ const redis = createClient({ url: config.redisUrl });
 redis.on('error', err => console.error('Redis error', err));
 
 const pool = new Pool({ connectionString: config.postgresUrl });
+const questionService = new QuestionService(pool);
 
 app.get('/health', async (_req, res) => {
   try {
@@ -69,6 +72,121 @@ app.get('/health', async (_req, res) => {
     res.json({ status: 'ok' });
   } catch (err) {
     res.status(500).json({ status: 'error', detail: (err as Error).message });
+  }
+});
+
+app.get('/api/questions', async (req, res) => {
+  try {
+    const { level, type } = req.query;
+    const questions = await questionService.getAllQuestions(
+      level as string | undefined,
+      type as string | undefined
+    );
+    res.json(questions);
+  } catch (err) {
+    console.error('Failed to fetch questions:', err);
+    res.status(500).json({ error: 'Failed to fetch questions', detail: (err as Error).message });
+  }
+});
+
+app.get('/api/questions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const question = await questionService.getQuestionById(id);
+    if (!question) {
+      res.status(404).json({ error: 'Question not found' });
+      return;
+    }
+    res.json(question);
+  } catch (err) {
+    console.error('Failed to fetch question:', err);
+    res.status(500).json({ error: 'Failed to fetch question', detail: (err as Error).message });
+  }
+});
+
+app.post('/api/questions', async (req, res) => {
+  try {
+    const { question, level, type, industry, explanation, examples } = req.body;
+    
+    if (!question || !level || !type || !explanation || !examples) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
+
+    const validLevels = ['easy', 'medium', 'hard'];
+    const validTypes = ['behavior', 'technical', 'product', 'system design'];
+    
+    if (!validLevels.includes(level)) {
+      res.status(400).json({ error: 'Invalid level. Must be one of: easy, medium, hard' });
+      return;
+    }
+    
+    if (!validTypes.includes(type)) {
+      res.status(400).json({ error: 'Invalid type. Must be one of: behavior, technical, product, system design' });
+      return;
+    }
+
+    if (!Array.isArray(examples)) {
+      res.status(400).json({ error: 'Examples must be an array' });
+      return;
+    }
+
+    const newQuestion = await questionService.createQuestion({
+      question,
+      level,
+      type,
+      industry,
+      explanation,
+      examples
+    } as CreateQuestionRequest);
+
+    res.status(201).json(newQuestion);
+  } catch (err) {
+    console.error('Failed to create question:', err);
+    res.status(500).json({ error: 'Failed to create question', detail: (err as Error).message });
+  }
+});
+
+app.put('/api/questions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { question, level, type, industry, explanation, examples } = req.body;
+
+    const updatedQuestion = await questionService.updateQuestion(id, {
+      question,
+      level,
+      type,
+      industry,
+      explanation,
+      examples
+    });
+
+    if (!updatedQuestion) {
+      res.status(404).json({ error: 'Question not found' });
+      return;
+    }
+
+    res.json(updatedQuestion);
+  } catch (err) {
+    console.error('Failed to update question:', err);
+    res.status(500).json({ error: 'Failed to update question', detail: (err as Error).message });
+  }
+});
+
+app.delete('/api/questions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await questionService.deleteQuestion(id);
+    
+    if (!deleted) {
+      res.status(404).json({ error: 'Question not found' });
+      return;
+    }
+
+    res.json({ message: 'Question deleted successfully' });
+  } catch (err) {
+    console.error('Failed to delete question:', err);
+    res.status(500).json({ error: 'Failed to delete question', detail: (err as Error).message });
   }
 });
 

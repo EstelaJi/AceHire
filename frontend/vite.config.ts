@@ -9,6 +9,10 @@ export default defineConfig({
       '/socket.io': {
         target: process.env.VITE_BACKEND_URL || 'http://localhost:4000',
         ws: true
+      },
+      '/api': {
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:4000',
+        changeOrigin: true
       }
     }
   }
